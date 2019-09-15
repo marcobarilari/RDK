@@ -1,175 +1,211 @@
-% RDK
-% Display a random dot kinetogram and then shos the density of th dots
+% Display a random dot kinetogram
 
-% Usage: RDK
-% TO DO LIST :
-% set a level of coherence in motion
+clear
+close all
+clc
 
-clear all; close all; clc
+debug = 0;
 
-DotDensity = .5; % dots per degree^2
-dot_speed   = 5; % max dot speed (deg/sec)
-dot_w       = 0.3; % width of dot (deg)
+% DOTS DETAILS
+% dots per degree^2
+dot_density = .5;
+% max dot speed (deg/sec)
+dot_speed   = 10;
+% width of dot (deg)
+dot_w = .5;
+% fraction of dots to kill each frame (limited lifetime)
+fraction_kill = 0.01;
+% Amount of coherence
+coherence = 1;
+% 0 gives right, 90 gives down, 180 gives left and 270 up.
+angle_motion = 270;
+% decompose angle of motion into horizontal and vertical vector
+hor_vector = cos(pi*angle_motion/180);
+vert_vector = sin(pi*angle_motion/180);
 
-f_kill      = 0.01; % fraction of dots to kill each frame (limited lifetime)
+% ANIMATIONS DETAILS
+% proportion of screeen height occupied by the RDK
+matrix_size = .95;
+% number of animation frames in loop
+n_frames = 7200;
+% Show new dot-images at each waitframes'th monitor refresh
+wait_frames = 1;
 
-Coherence = 0.9; % Amount of coherence
-AngleCoherence = 90; % 0 gives right, 90 gives up, 180 gives left and 270 down.
+% SCREEN DETAILS
+% horizontal dimension of viewable screen (cm)
+mon_width = 39;
+% viewing distance (cm)
+view_dist = 60;
 
-MatrixSize = .75; % proportion of Screeen height occuied by the RDK
-
-nframes     = 240; % number of animation frames in loop
-
-waitframes = 1;     % Show new dot-images at each waitframes'th monitor refresh
-
-mon_width   = 39;   % horizontal dimension of viewable screen (cm)
-v_dist      = 60;   % viewing distance (cm)
-
+aperture_width = 400;
 
 %%
-HorVector = cos(pi*AngleCoherence/180);
-VertVector = sin(pi*AngleCoherence/180);
-
 AssertOpenGL;
 
-PsychDebugWindowConfiguration;
+if debug
+    PsychDebugWindowConfiguration
+else
+    Screen('Preference', 'SkipSyncTests', 1) %#ok<*UNRCH>
+    oldEnableFlag = Screen('Preference', 'SuppressAllWarnings', 1);
+end
 
 try
-
+    
+    
+    %% open screen and get info
     screens=Screen('Screens');
-    screenNumber=max(screens);
-
-    [w, rect] = Screen('OpenWindow', screenNumber, 0, [], 32, 2);
-    [center(1), center(2)] = RectCenter(rect); % Gets the coordinates of the center of the screen
-
+    screen_number=max(screens);
+    
+    [w, rect] = Screen('OpenWindow', screen_number, 0, [], 32, 2);
+    
+    % Gets the coordinates of the center of the screen
+    [center(1), center(2)] = RectCenter(rect);
+    
     % Enable alpha blending with proper blend-function. We need it for drawing of smoothed points:
     Screen('BlendFunction', w, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-    fps=Screen('FrameRate',w); % frames per second
-    ifi=Screen('GetFlipInterval', w); % interframe interval
+    
+    % frames per second
+    fps=Screen('FrameRate',w);
+    % interframe interval
+    ifi=Screen('GetFlipInterval', w);
     if fps==0
         fps=1/ifi;
     end
-
-    Black = BlackIndex(w);
-    White = WhiteIndex(w);
-
-
+    
     % Pixel per degree
-    ppd = pi * (rect(3)-rect(1)) / atan(mon_width/v_dist/2) / 360;
-
-
-    % Size of circle covered by the RDK
-    MatrixSize = floor(rect(4)*MatrixSize);
-    % Center of the RDK
-    MatCenter=[center(1),center(2)];
-
+    ppd  =  getPPD(rect, mon_width, view_dist);
+    
+    % Get color index for that screen
+    Black  =  BlackIndex(w);
+    White  =  WhiteIndex(w);
+    
+    
+    %% set general RDK details
+    % diameter of circle covered by the RDK
+    matrix_size  =  floor(rect(4) * matrix_size);
+    
+    % center of the RDK
+    mat_center  = [center(1), center(2)];
+    
     % dot speed (pixels/frame)
-    pfs = dot_speed * ppd / fps;
-
+    pfs  =  dot_speed * ppd / fps;
+    
     % dot size (pixels)
-    s = dot_w * ppd;
-
+    s  =  dot_w * ppd;
+    
     % Number of dots : surface of the RDK disc * density of dots
-    nDots = ceil(pi * (MatrixSize/2/ppd)^2 * DotDensity);
-    if nDots<10
-        nDots=10;
-    end
-
+    nDots  =  getNumberDots(dot_w, matrix_size, dot_density, ppd);
+    
     % Decide which dots are signal dots (1) and those are noise dots (0)
-    DotNature = rand(nDots,1)<Coherence;
-
-
+    dot_nature  =  rand(nDots,1) < coherence;
+    
+    
     % FIXATION CROSS
-    FixCr=ones(10,10)*0;
-    FixCr(5:6,:)=255;
-    FixCr(:,5:6)=255;
-    fixcross = Screen('MakeTexture',w,FixCr);
-    fix_cord = [center(1)-5,center(2)-5,center(1)+5,center(2)-5];
-
-
-    %DOTS
-    % Dot positions and speed matrix : colunm 1 to 5 gives rexpectively x
-    % position, y position, x speed, y speed, and distance of the point
-    % the RDK center
-    xy=zeros(nDots,5);
-
-    % Gives random position to the dots in x and y
-    X = rand(nDots,1)*MatrixSize-MatrixSize/2;
-    temp = ((MatrixSize/2)^2-X.^2).^0.5; % Pythagorus is your friend
-    Y = rand(nDots,1).*temp*2-temp;
-
-    xy(:,1) = X;
-    xy(:,2) = Y;
-    clear X Y temp
-
-
-    % Gives a pre determinded horizontal and vertical speed to the signal
-    % dots
-    xy(DotNature,3:4) = repmat([HorVector VertVector], sum(DotNature), 1) * 2 * pfs - pfs;
+    cross_size  =  500;
+    fix_cross  =  ones(100,100)*White;
+    fix_cross(5:6, :) =  White;
+    fix_cross(:, 5:6) =  White;
+    fix_cross  =  Screen('MakeTexture', w, fix_cross);
+    fix_coord  = [center(1)-cross_size, center(2)-cross_size, center(1)+cross_size, center(2)-cross_size];
+    
+    %% initialize dots
+    % Dot positions and speed matrix : colunm 1 to 5 gives respectively 
+    % x position, y position, x speed, y speed, and distance of the point the RDK center
+    xy= zeros(nDots,5);
+    
+    [X] = getX(nDots, matrix_size);
+    [Y] = getY(nDots, matrix_size, X);
+    
+    xy(:,1) =  X;
+    xy(:,2) =  Y;
+    clear X Y
+    
+    % Gives a pre determinded horizontal and vertical speed to the signal dots
+    xy(dot_nature,3:4) = ...
+        repmat([hor_vector vert_vector], [sum(dot_nature), 1]) * pfs;
     % Gives a random horizontal and vertical speed to the other ones
-    xy(~DotNature,3:4) = rand(sum(~DotNature),2) * 2 * pfs - pfs;
-
-
-    %%%%%%%%%
-    % START %
-    %%%%%%%%%
+    xy(~dot_nature,3:4) =  rand(sum(~dot_nature),2) * pfs;
+    
+    
+    aperture_x  = [-500 -500 + aperture_width];
+    
+    %% START
     HideCursor;
     Priority(MaxPriority(w));
-
+    
     % Do initial flip...
     vbl=Screen('Flip', w);
-
-    for i = 1:nframes
+    
+    for i  =  1:n_frames
         if (i>1)
             % Draw nice dots : change 1 to 0 to draw square dots
-            Screen('DrawDots', w, xymatrix, s, White, MatCenter,1);
+            Screen('DrawDots', w, xy_matrix, s, White, mat_center, 1);
             % Centered fixation cross
-            Screen('DrawTexture', w, fixcross,[],fix_cord);
+            Screen('DrawTexture', w, fix_cross,[],fix_coord);
             % Tell PTB that no further drawing commands will follow before Screen('Flip')
             Screen('DrawingFinished', w);
         end
-
+        
+        aperture_x  =  aperture_x + 1;
+        
         if KbCheck % break out of loop
             break;
         end
-
+        
         % Move the dots
-        xy(:,1:2) = xy(:,1:2) + xy(:,3:4);
-
+        xy(:,1:2) =  xy(:,1:2) + xy(:,3:4);
+        
         % calculate distance from matrix center for each dot
-        [a, R] = cart2pol(xy(:,1), xy(:,2));
-        xy(:,5) = R;
-
+        [a, R] =  cart2pol(xy(:,1), xy(:,2));
+        xy(:,5) =  R;
+        
         % Finds if there is dots to reposition
-        r_out  = find(xy(:,5) > (MatrixSize/2) | rand(nDots,1) < f_kill);
+        r_out  = (xy(:,5) > (matrix_size/2) | rand(nDots,1) < fraction_kill);
+        
+        % r_out  =  any([r_out xy(:,1)<aperture_x(1) xy(:,1)>aperture_x(2)], 2);
+        
+        r_out  =  find(r_out);
+        
         % Number of dots to reposition
-        n_out = length(r_out);
-
+        n_out  =  length(r_out);
+        
         if n_out
             % Gives random position to the dots in x and y
-            X = rand(n_out,1)*MatrixSize-MatrixSize/2;
-            temp = ((MatrixSize/2)^2-X.^2).^0.5;
-            Y = rand(n_out,1).*temp*2-temp;
-
-            xy(r_out,1) = X;
-            xy(r_out,2) = Y;
-            clear X Y
-
+            % X  =  rand(n_out,1)*aperture_x(2)-aperture_x(1);
+%             X = ( xy(r_out,1)-xy(r_out,3) ) * -1;
+%             X = ( xy(r_out,1:2)-xy(r_out,3:4) ) * -1;
+%             [Y] = getY(n_out, matrix_size, X);
+            
+            xy(r_out,1:2) = ( xy(r_out,1:2)-xy(r_out,3:4) ) * -1;
+            
+%             xy(r_out,1) =  X;
+%             xy(r_out,2) =  Y;
+%             clear X Y
+            
             % Gives new velocities direction value to these dots
-            xy(r_out,3:4) = rand(n_out,2) * 2 * pfs - pfs;
+            % xy(r_out,3:4) =  rand(n_out,2) * 2 * pfs - pfs;
         end
-
-        xymatrix = transpose(xy(:,1:2));
-
-        vbl=Screen('Flip', w, vbl + waitframes*ifi);
-
-    end;
-
+        
+        if mod(i,20) == 0
+            angle_motion  =  angle_motion + 5;
+            
+            hor_vector  =  cos(pi*angle_motion/180);
+            vert_vector  =  sin(pi*angle_motion/180);
+            
+            xy(dot_nature,3:4) = ...
+                repmat([hor_vector vert_vector], sum(dot_nature), 1) * 2 * pfs;
+        end
+        
+        xy_matrix  =  transpose(xy(:,1:2));
+        
+        vbl=Screen('Flip', w, vbl + wait_frames*ifi);
+        
+    end
+    
     Priority(0);
     ShowCursor
     Screen('CloseAll');
-
+    
 catch
     Priority(0);
     ShowCursor
