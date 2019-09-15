@@ -25,6 +25,12 @@ angle_motion = cfg.angle_motion;
 hor_vector = cos(pi*angle_motion/180);
 vert_vector = sin(pi*angle_motion/180);
 
+% FIXATION
+fix_cross_size_VA = cfg.fix_cross_size_VA;
+fix_cross_lineWidth_VA = cfg.fix_cross_lineWidth_VA;
+fix_cross_xDisp = cfg.fix_cross_xDisp;
+fix_cross_yDisp = cfg.fix_cross_yDisp;
+
 % ANIMATIONS DETAILS
 % proportion of screeen height occupied by the RDK
 matrix_size = cfg.matrix_size;
@@ -93,7 +99,7 @@ try
     pfs  =  dot_speed * ppd / fps;
     
     % dot size (pixels)
-    s  =  dot_w * ppd;
+    dot_s  =  dot_w * ppd;
     
     % Number of dots : surface of the RDK disc * density of dots
     nDots  =  getNumberDots(dot_w, matrix_size, dot_density, ppd);
@@ -104,14 +110,12 @@ try
     % bar aperture width in pixel
     aperture_width = aperture_width * ppd;
     
-    
-    % FIXATION CROSS
-    cross_size  =  500;
-    fix_cross  =  ones(100,100)*White;
-    fix_cross(5:6, :) =  White;
-    fix_cross(:, 5:6) =  White;
-    fix_cross  =  Screen('MakeTexture', w, fix_cross);
-    fix_coord  = [center(1)-cross_size, center(2)-cross_size, center(1)+cross_size, center(2)-cross_size];
+    % fixation cross
+    fix_cross_size_pix = fix_cross_size_VA * ppd;
+    fix_cross_lineWidth_pix = fix_cross_lineWidth_VA * ppd;
+    xCoords = [-fix_cross_size_pix fix_cross_size_pix 0 0] + fix_cross_xDisp;
+    yCoords = [0 0 -fix_cross_size_pix fix_cross_size_pix] + fix_cross_yDisp;
+    fix_cross_coords = [xCoords; yCoords];
     
     %% initialize dots
     % Dot positions and speed matrix : colunm 1 to 5 gives respectively
@@ -166,19 +170,23 @@ try
         % plotted
         r_in  = xy(:,5) <= matrix_size/2;
         
+        % find the dots that do not overlap with fixation cross
+        r_cross  = xy(:,5) > fix_cross_size_pix * 2;
+        
         % find the dots that are within the aperture area and only pass those to be
         % plotted
         r_in  =  find( all([ ...
             r_in, ...
+            r_cross, ...
             xy(:,1)>aperture_x(1), ...
             xy(:,1)<aperture_x(2)] ,2) );
         
         xy_matrix  =  transpose(xy(r_in,1:2));
 
         % Draw nice dots : change 1 to 0 to draw square dots
-        Screen('DrawDots', w, xy_matrix, s, White, mat_center, 1);
+        Screen('DrawDots', w, xy_matrix, dot_s, White, mat_center, 1);
         % Centered fixation cross
-        Screen('DrawTexture', w, fix_cross,[],fix_coord);
+        Screen('DrawLines', w, fix_cross_coords, fix_cross_lineWidth_pix, White, mat_center, 1);  % Draw the fixation cross
         % Tell PTB that no further drawing commands will follow before Screen('Flip')
         Screen('DrawingFinished', w);
         
@@ -186,7 +194,7 @@ try
         
         
         
-        aperture_x  =  aperture_x + 1;
+        aperture_x  =  aperture_x + .5;
         
         % Move the dots
         xy(:,1:2) =  xy(:,1:2) + xy(:,3:4);
@@ -202,7 +210,7 @@ try
         
         
         if mod(i,10) == 0
-            angle_motion  =  angle_motion + 1;
+            angle_motion  =  angle_motion + 2;
             
             hor_vector  =  cos(pi*angle_motion/180);
             vert_vector  =  sin(pi*angle_motion/180);
