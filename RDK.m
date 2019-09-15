@@ -6,38 +6,40 @@ clc
 
 debug = 0;
 
+cfg = config();
+
 % DOTS DETAILS
 % dots per degree^2
-dot_density = .5;
+dot_density = cfg.dot_density;
 % max dot speed (deg/sec)
-dot_speed   = 10;
+dot_speed   = cfg.dot_speed;
 % width of dot (deg)
-dot_w = .5;
+dot_w = cfg.dot_w;
 % fraction of dots to kill each frame (limited lifetime)
-fraction_kill = 0.01;
+fraction_kill = cfg.fraction_kill;
 % Amount of coherence
-coherence = 1;
+coherence = cfg.coherence;
 % 0 gives right, 90 gives down, 180 gives left and 270 up.
-angle_motion = 270;
+angle_motion = cfg.angle_motion;
 % decompose angle of motion into horizontal and vertical vector
 hor_vector = cos(pi*angle_motion/180);
 vert_vector = sin(pi*angle_motion/180);
 
 % ANIMATIONS DETAILS
 % proportion of screeen height occupied by the RDK
-matrix_size = .95;
+matrix_size = cfg.matrix_size;
 % number of animation frames in loop
-n_frames = 7200;
+n_frames = cfg.n_frames;
 % Show new dot-images at each waitframes'th monitor refresh
-wait_frames = 1;
+wait_frames = cfg.wait_frames;
 
 % SCREEN DETAILS
 % horizontal dimension of viewable screen (cm)
-mon_width = 39;
+mon_width = cfg.mon_width;
 % viewing distance (cm)
-view_dist = 60;
+view_dist = cfg.view_dist;
 
-aperture_width = 400;
+aperture_width = cfg.aperture_width;
 
 %%
 AssertOpenGL;
@@ -142,8 +144,11 @@ try
             Screen('DrawDots', w, xy_matrix, s, White, mat_center, 1);
             % Centered fixation cross
             Screen('DrawTexture', w, fix_cross,[],fix_coord);
-            % Tell PTB that no further drawing commands will follow before Screen('Flip')
-            Screen('DrawingFinished', w);
+        % Finds if there is dots to reposition because out of the RDK
+        xy = dotsROut(xy, matrix_size);
+        
+        % Kill some dots and reseed them at random position
+        xy = dotsReseed(nDots, fraction_kill, matrix_size, xy);
         end
         
         aperture_x  =  aperture_x + 1;
@@ -155,33 +160,17 @@ try
         % Move the dots
         xy(:,1:2) =  xy(:,1:2) + xy(:,3:4);
         
-        % calculate distance from matrix center for each dot
-        [a, R] =  cart2pol(xy(:,1), xy(:,2));
-        xy(:,5) =  R;
         
-        % Finds if there is dots to reposition
-        r_out  = (xy(:,5) > (matrix_size/2) | rand(nDots,1) < fraction_kill);
         
-        % r_out  =  any([r_out xy(:,1)<aperture_x(1) xy(:,1)>aperture_x(2)], 2);
         
-        r_out  =  find(r_out);
         
-        % Number of dots to reposition
-        n_out  =  length(r_out);
+        aperture_x  =  aperture_x + 1;
         
-        if n_out
-            % Gives random position to the dots in x and y
-            % X  =  rand(n_out,1)*aperture_x(2)-aperture_x(1);
-%             X = ( xy(r_out,1)-xy(r_out,3) ) * -1;
-%             X = ( xy(r_out,1:2)-xy(r_out,3:4) ) * -1;
-%             [Y] = getY(n_out, matrix_size, X);
-            
-            xy(r_out,1:2) = ( xy(r_out,1:2)-xy(r_out,3:4) ) * -1;
-            
-%             xy(r_out,1) =  X;
-%             xy(r_out,2) =  Y;
-%             clear X Y
-            
+        % Move the dots
+        xy(:,1:2) =  xy(:,1:2) + xy(:,3:4);
+        
+        
+        
             % Gives new velocities direction value to these dots
             % xy(r_out,3:4) =  rand(n_out,2) * 2 * pfs - pfs;
         end
