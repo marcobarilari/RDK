@@ -1,112 +1,146 @@
-function RDKsim
-% Call RDKsim
 % Simulates a RDK and estimates the density of the dots over a desired number of frames
 
-% TO DO LIST
-% Still one problem is the high density of dots at very low/high value of x
-% Implement polar coordinate
-% Organise script to have a certain percentage of dots with a coherent motion
+clear
+close all
+clc
 
-ppd =  53; % Pixel per degree on a 39 cm wide screen seen at a 60 cm distance
-%ppd =  40;
-fps=60; % Frame per seconds on a "normal" screen
-
-nframes = 60000 % number of animation frames in loop
-report = ceil(nframes/10); % report the iteration number
-
-MatrixSize=800; 
-r=MatrixSize/2; % Radius of the RDK
-
-dot_w       = 0.2;  % width of dot (deg)
-s = dot_w * ppd; % dot size (pixels)
-
-DotDensity=0.1; % Relative to the number of pixel in the disc surface of the RDK
-nDots=ceil(pi*r^2/(2*pi*(s/2)^2)*DotDensity) % Number of dots : surface of the RDK disc / surface of one dot * density of dots
+% ANIMATIONS DETAILS
+% number of animation frames in loop
+nframes = 10000;
+log_ndots = zeros(1,nframes);
 
 
-dot_speed   = 3; % Maximum dot speed en degree
-pfs = dot_speed * ppd / fps; % Maximum dot speed en pixels
-MinSpeed = 5; % how to implement it ?
+% SCREEN DETAILS
+% Pixel per degree on a 39 cm wide screen seen at a 60 cm distance
+ppd =  53;
+% Frame per seconds on a "normal" screen
+fps = 60;
 
-f_kill = 0.2; % fraction of dots to kill each frame (limited lifetime)
+matrix_size = 800;
 
-% Initialise the different matrixes
-r_dots=zeros(nDots,1);
-xy=zeros(nDots,5); % Dot positions and speed matrix : colunm 1 to 5 gives rexpectively x position, y position, x speed, y speed, and distance of the point the RDK center
 
-B=zeros(MatrixSize,MatrixSize); % Matrix to record positon of the dots at each frame
+cfg = config();
 
-%-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-%The following lines are a so-far-failed attempt to use polar coordinates
-%-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+% DOTS DETAILS
+% dots per degree^2
+dot_density = cfg.dot_density;
+% max dot speed (deg/sec)
+dot_speed   = cfg.dot_speed;
+% width of dot (deg)
+dot_w = cfg.dot_w;
+% fraction of dots to kill each frame (limited lifetime)
+fraction_kill = cfg.fraction_kill;
+% Amount of coherence
+coherence = cfg.coherence;
+% 0 gives right, 90 gives down, 180 gives left and 270 up.
+angle_motion = cfg.angle_motion;
+% decompose angle of motion into horizontal and vertical vector
+hor_vector = cos(pi*angle_motion/180);
+vert_vector = sin(pi*angle_motion/180);
 
-    %t = 2*pi*rand(nDots,1) ; % theta polar coordinate
-    %cs = [cos(t), sin(t)] ;
-    %xy(:,5) = r*randn(nDots,1) ; % r polar coordinate
-    %xy(:,1:2) = [xy(:,5) xy(:,5)] .* cs ; % dot positions in Cartesian coordinates (pixels from center)
+aperture_width = cfg.aperture_width;
 
-    %dt = 2*pi*rand(nDots,1) ; % motion direction (in or out) for each dot
-    %dR = r*randn(nDots,1) ; % change in radius per frame (pixels)
-    %xy(:,3:4) = [(-xy(:,5)*sin(t)*dt+cos(t)*dR) (xy(:,5)*cos(t)*dt+sin(t)*dR)] ; % change in x and y per frame (pixels)
+
+% Initialise the other variables
+
+% To collect dots density
+B = zeros(matrix_size);
+
+% report the iteration number
+report = ceil(nframes/10);
+
+% Radius of the RDK
+r=matrix_size/2;
+
+% dot speed (pixels/frame)
+pfs  =  dot_speed * ppd / fps;
+
+% dot size (pixels)
+s  =  dot_w * ppd;
+
+% Number of dots : surface of the RDK disc * density of dots
+nDots  =  getNumberDots(dot_w, matrix_size, dot_density, ppd);
+
+% Decide which dots are signal dots (1) and those are noise dots (0)
+dot_nature  =  rand(nDots,1) < coherence;
+
+
+%% initialize dots
+% Dot positions and speed matrix : colunm 1 to 5 gives respectively
+% x position, y position, x speed, y speed, and distance of the point the RDK center
+xy= zeros(nDots,5);
+
+[X] = getX(nDots, matrix_size);
+[Y] = getY(nDots, matrix_size, X);
+
+xy(:,1) =  X;
+xy(:,2) =  Y;
+clear X Y
+
+% Gives a pre determinded horizontal and vertical speed to the signal dots
+xy(dot_nature,3:4) = ...
+    repmat([hor_vector vert_vector], [sum(dot_nature), 1]) * pfs;
+
+% Gives a random horizontal and vertical speed to the other ones
+xy(~dot_nature,3:4) =  randn(sum(~dot_nature),2) * pfs;
+
+% calculate distance from matrix center for each dot
+[~, R] =  cart2pol(xy(:,1), xy(:,2));
+xy(:,5) =  R;
+
+aperture_x  = [-400 -400+aperture_width];
+
+
+for i = 1:nframes
+    if mod(i, report)==0 % To know how far in the loop we are
+        disp(i)
+    end
     
-%-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+    % Finds if there is dots to reposition because out of the RDK
+    xy = dotsROut(xy, matrix_size);
+    
+    % Kill some dots and ressed them at random position
+    xy = dotsReseed(nDots, fraction_kill, matrix_size, xy);
+    
+    % calculate distance from matrix center for each dot
+    [~, R] =  cart2pol(xy(:,1), xy(:,2));
+    xy(:,5) =  R;
+    
+    % find the dots that are within the aread and only pass those to be
+    % plotted
+    r_in  = xy(:,5) <= matrix_size/2;
+    
+    % find the dots that are within the aperture area and only pass those to be
+    % plotted
+    r_in  =  find( all([ ...
+        r_in, ...
+        xy(:,1)>aperture_x(1), ...
+        xy(:,1)<aperture_x(2)] ,2) );
 
-xy(:,1) = ceil((MatrixSize-2)*(rand(nDots,1))); % Gives random position to the dots in x. The "-2" in (MatrixSize-2) is there to reduces a too high density in the high end of x
-xy(:,2) = round(r - ((r^2 - (r-xy(:,1)).^2) .^0.5) + 2*rand(nDots,1).*( r^2 - (r-xy(:,1)).^2) .^0.5); % Gives a random position in y as a function of x and r
-
-xy(:,3:4) = round(rand(nDots,2) * 2*pfs-pfs); % Gives a "normal" random horizontal and vertical speed and multiplies it by the maximum dot speed en pixels 
-
-for i = 1:nframes;	
-	if mod(i, report)==0 % To know how far in the loop we are
-		i			
-	end		
-
-	xy(:,1:2) = xy(:,1:2) + xy(:,3:4); % Move the dots
-	%xy(:,5) =  xy(:,5)+dR %
-
-	for i=1:nDots;
-		xy(i,5) = (xy(i,1)-r)^2 + (xy(i,2)-r)^2; % calculate distance from matrix center for each dot
-	end
-
-	%r_out  = find(xy(:,5) > r | rand(nDots,1) < f_kill); % Finds if there is dots to reposition
-	
-	r_out  = find(xy(:,5) > (r^2) | rand(nDots,1) < f_kill); % Finds if there is dots to reposition
-	n_out=length(r_out); % Number of dots to reposition
-
-	if n_out;	
-		xy(r_out,1) = ceil((MatrixSize-2)*(rand(n_out,1))); % Gives new x value to these dots
-		xy(r_out,2) = round(r - ((r^2 - (r-xy(r_out,1)).^2) .^0.5) + 2*rand(n_out,1).*( r^2 - (r-xy(r_out,1)).^2) .^0.5); % Gives new y value to these dots
-
-		xy(r_out,3:4) = round(rand(n_out,2) * 2*pfs-pfs); % Gives new velocities direction value to these dots
-		
-		%-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		
-		%t = 2*pi*rand(r_out,1); % theta polar coordinate
-		%cs = [cos(t), sin(t)];
-		%xy(r_out,5) = r*randn(r_out,1); % r polar coordinate
-		%xy(r_out,1:2) = [xy(r_out,5) xy(r_out,5)] .* cs; % dot positions in Cartesian coordinates (pixels from center)
-		
-		%dt = 2*pi*rand(r_out,1) ; % motion direction (in or out) for each dot
-		%dR = r*randn(r_out,1) ; % change in radius per frame (pixels)
-		%xy(r_out,3:4) = [(-xy(r_out,5)*sin(t)*dt+cos(t)*dR) (xy(r_out,5)*cos(t)*dt+sin(t)*dR)] ; % change in x and y per frame (pixels)
-		
-		%-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-		
-		
-	end	
-	
-	for i=1:nDots % Increments of 1 all the position of the matrix with a dot 
-		if xy(i,2)<=0 | xy(i,1)<=0 % Don't know why this is there but it does not wor without
-		else			
-		B(xy(i,2),xy(i,1))=B(xy(i,2),xy(i,1))+1;
-		end
-	end	
+    xy_matrix =  xy(r_in,1:2);
+    
+    % convert to pixel
+    xy_matrix = floor(xy_matrix+matrix_size/2+1); 
+    
+    % update matrix that keeps track of dots density
+    ind = sub2ind(size(B), xy_matrix(:,2), xy_matrix(:,1));
+    B(ind) = B(ind) + 1;
+    
+    % Move the dots
+    xy(:,1:2) =  xy(:,1:2) + xy(:,3:4);
+    
+    % track numbe of dots on screen
+    log_ndots(i) = numel(ind);
+    
 end
 
-subplot (211)
-[X Y]=meshgrid(1:MatrixSize, 1:MatrixSize);
-mesh (X, Y, B)
+subplot (311)
+[X, Y]=meshgrid(1:matrix_size, 1:matrix_size);
+mesh(X, Y, B)
 
-subplot (212)
+subplot (312)
 imagesc(B)
-axis('equal')
+axis square
+
+subplot (313)
+plot(log_ndots)

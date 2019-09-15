@@ -101,6 +101,9 @@ try
     % Decide which dots are signal dots (1) and those are noise dots (0)
     dot_nature  =  rand(nDots,1) < coherence;
     
+    % bar aperture width in pixel
+    aperture_width = aperture_width * ppd;
+    
     
     % FIXATION CROSS
     cross_size  =  500;
@@ -111,7 +114,7 @@ try
     fix_coord  = [center(1)-cross_size, center(2)-cross_size, center(1)+cross_size, center(2)-cross_size];
     
     %% initialize dots
-    % Dot positions and speed matrix : colunm 1 to 5 gives respectively 
+    % Dot positions and speed matrix : colunm 1 to 5 gives respectively
     % x position, y position, x speed, y speed, and distance of the point the RDK center
     xy= zeros(nDots,5);
     
@@ -125,11 +128,16 @@ try
     % Gives a pre determinded horizontal and vertical speed to the signal dots
     xy(dot_nature,3:4) = ...
         repmat([hor_vector vert_vector], [sum(dot_nature), 1]) * pfs;
+    
     % Gives a random horizontal and vertical speed to the other ones
-    xy(~dot_nature,3:4) =  rand(sum(~dot_nature),2) * pfs;
+    xy(~dot_nature,3:4) =  randn(sum(~dot_nature),2) * pfs;
     
+    % calculate distance from matrix center for each dot
+    [~, R] =  cart2pol(xy(:,1), xy(:,2));
+    xy(:,5) =  R;
     
-    aperture_x  = [-500 -500 + aperture_width];
+    % aperture position
+    aperture_x  = [matrix_size/-2 matrix_size/-2+aperture_width];
     
     %% START
     HideCursor;
@@ -139,26 +147,40 @@ try
     vbl=Screen('Flip', w);
     
     for i  =  1:n_frames
-        if (i>1)
-            % Draw nice dots : change 1 to 0 to draw square dots
-            Screen('DrawDots', w, xy_matrix, s, White, mat_center, 1);
-            % Centered fixation cross
-            Screen('DrawTexture', w, fix_cross,[],fix_coord);
-        % Finds if there is dots to reposition because out of the RDK
-        xy = dotsROut(xy, matrix_size);
-        
-        % Kill some dots and reseed them at random position
-        xy = dotsReseed(nDots, fraction_kill, matrix_size, xy);
-        end
-        
-        aperture_x  =  aperture_x + 1;
         
         if KbCheck % break out of loop
             break;
         end
         
-        % Move the dots
-        xy(:,1:2) =  xy(:,1:2) + xy(:,3:4);
+        % Finds if there is dots to reposition because out of the RDK
+        xy = dotsROut(xy, matrix_size);
+        
+        % Kill some dots and reseed them at random position
+        xy = dotsReseed(nDots, fraction_kill, matrix_size, xy);
+        
+        % calculate distance from matrix center for each dot
+        [~, R] =  cart2pol(xy(:,1), xy(:,2));
+        xy(:,5) =  R;
+        
+        % find the dots that are within the aread and only pass those to be
+        % plotted
+        r_in  = xy(:,5) <= matrix_size/2;
+        
+        % find the dots that are within the aperture area and only pass those to be
+        % plotted
+        r_in  =  find( all([ ...
+            r_in, ...
+            xy(:,1)>aperture_x(1), ...
+            xy(:,1)<aperture_x(2)] ,2) );
+        
+        xy_matrix  =  transpose(xy(r_in,1:2));
+
+        % Draw nice dots : change 1 to 0 to draw square dots
+        Screen('DrawDots', w, xy_matrix, s, White, mat_center, 1);
+        % Centered fixation cross
+        Screen('DrawTexture', w, fix_cross,[],fix_coord);
+        % Tell PTB that no further drawing commands will follow before Screen('Flip')
+        Screen('DrawingFinished', w);
         
         
         
@@ -171,21 +193,25 @@ try
         
         
         
-            % Gives new velocities direction value to these dots
-            % xy(r_out,3:4) =  rand(n_out,2) * 2 * pfs - pfs;
-        end
+        % Gives new velocities direction value to these dots
+        % xy(r_out,3:4) =  rand(n_out,2) * 2 * pfs - pfs;
+
+        % 
         
-        if mod(i,20) == 0
-            angle_motion  =  angle_motion + 5;
+        
+        
+        
+        if mod(i,10) == 0
+            angle_motion  =  angle_motion + 1;
             
             hor_vector  =  cos(pi*angle_motion/180);
             vert_vector  =  sin(pi*angle_motion/180);
             
             xy(dot_nature,3:4) = ...
-                repmat([hor_vector vert_vector], sum(dot_nature), 1) * 2 * pfs;
+                repmat([hor_vector vert_vector], sum(dot_nature), 1) * pfs;
         end
         
-        xy_matrix  =  transpose(xy(:,1:2));
+        
         
         vbl=Screen('Flip', w, vbl + wait_frames*ifi);
         
