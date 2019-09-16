@@ -21,9 +21,8 @@ fraction_kill = cfg.fraction_kill;
 coherence = cfg.coherence;
 % 0 gives right, 90 gives down, 180 gives left and 270 up.
 angle_motion = cfg.angle_motion;
-% decompose angle of motion into horizontal and vertical vector
-hor_vector = cos(pi*angle_motion/180);
-vert_vector = sin(pi*angle_motion/180);
+% speed rotation of motion direction in degrees per second
+spd_rot_mot_sec = cfg.spd_rot_mot_sec;
 
 % FIXATION
 fix_cross_size_VA = cfg.fix_cross_size_VA;
@@ -137,11 +136,16 @@ try
     xy(~dot_nature,3:4) =  randn(sum(~dot_nature),2) * pfs;
     
     % calculate distance from matrix center for each dot
-    [~, R] =  cart2pol(xy(:,1), xy(:,2));
-    xy(:,5) =  R;
+    xy = getDist2Center(xy);
     
     % aperture position
     aperture_x  = [matrix_size/-2 matrix_size/-2+aperture_width];
+    
+    %% initialize aperture
+    % aperture configuration
+    aperture_cfg = getApertureCfg(...
+        aperture_style, aperture_speed_ppf, ...
+        aperture_width, matrix_size, fix_cross_size_pix);
     
     %% START
     HideCursor;
@@ -172,6 +176,8 @@ try
         
         % find the dots that do not overlap with fixation cross
         r_cross  = xy(:,5) > fix_cross_size_pix * 2;
+        % find the dots that are within the aperture area
+        r_aperture = dotsInAperture(xy, aperture_style, aperture_cfg);
         
         % find the dots that are within the aperture area and only pass those to be
         % plotted
@@ -219,7 +225,12 @@ try
                 repmat([hor_vector vert_vector], sum(dot_nature), 1) * pfs;
         end
         
+        % update motion direction
+        angle_motion = angle_motion + spd_rot_mot_f;
+        [hor_vector, vert_vector] = decompMotion(angle_motion);
         
+        % update dot matrix
+        xy = getXYMotion(xy, dot_nature, hor_vector, vert_vector, pfs);
         
         vbl=Screen('Flip', w, vbl + wait_frames*ifi);
         
