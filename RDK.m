@@ -139,12 +139,14 @@ try
     xy(:,2) = Y;
     clear X Y
     
+    % decompose angle of start motion into horizontal and vertical vector
+    [hor_vector, vert_vector] = decompMotion(angle_motion);
+    
     % Gives a pre determinded horizontal and vertical speed to the signal dots
-    xy(dot_nature,3:4) = ...
-        repmat([hor_vector vert_vector], [sum(dot_nature), 1]) * pfs;
+    xy = getXYMotion(xy, dot_nature, hor_vector, vert_vector, pfs);
     
     % Gives a random horizontal and vertical speed to the other ones
-    xy(~dot_nature,3:4) =  randn(sum(~dot_nature),2) * pfs;
+    xy(~dot_nature,3:4) = randn(sum(~dot_nature),2) * pfs;
     
     % calculate distance from matrix center for each dot
     xy = getDist2Center(xy);
@@ -178,8 +180,7 @@ try
         xy = dotsReseed(nDots, fraction_kill, matrix_size, xy);
         
         % calculate distance from matrix center for each dot
-        [~, R] =  cart2pol(xy(:,1), xy(:,2));
-        xy(:,5) =  R;
+        xy = getDist2Center(xy);
         
         % find the dots that are within the aread and only pass those to be
         % plotted
