@@ -12,7 +12,7 @@ cfg = config();
 % dots per degree^2
 dot_density = cfg.dot_density;
 % max dot speed (deg/sec)
-dot_speed   = cfg.dot_speed;
+dot_speed = cfg.dot_speed;
 % width of dot (deg)
 dot_w = cfg.dot_w;
 % fraction of dots to kill each frame (limited lifetime)
@@ -23,6 +23,13 @@ coherence = cfg.coherence;
 angle_motion = cfg.angle_motion;
 % speed rotation of motion direction in degrees per second
 spd_rot_mot_sec = cfg.spd_rot_mot_sec;
+
+% APERTURE
+aperture_style = cfg.aperture_style;
+% aperture width in deg VA
+aperture_width = cfg.aperture_width;
+% aperture speed deg VA / sec
+aperture_speed = cfg.aperture_speed_VA;
 
 % FIXATION
 fix_cross_size_VA = cfg.fix_cross_size_VA;
@@ -56,6 +63,7 @@ else
     oldEnableFlag = Screen('Preference', 'SuppressAllWarnings', 1);
 end
 
+% put everything into a try / catch in case the poop hits the fan
 try
     
     
@@ -63,58 +71,61 @@ try
     screens=Screen('Screens');
     screen_number=max(screens);
     
-    [w, rect] = Screen('OpenWindow', screen_number, 0, [], 32, 2);
+    [win, rect] = Screen('OpenWindow', screen_number, 0, [], 32, 2);
     
     % Gets the coordinates of the center of the screen
     [center(1), center(2)] = RectCenter(rect);
     
     % Enable alpha blending with proper blend-function. We need it for drawing of smoothed points:
-    Screen('BlendFunction', w, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    Screen('BlendFunction', win, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     
     % frames per second
-    fps=Screen('FrameRate',w);
+    fps=Screen('FrameRate',win);
     % interframe interval
-    ifi=Screen('GetFlipInterval', w);
+    ifi=Screen('GetFlipInterval', win);
     if fps==0
         fps=1/ifi;
     end
     
     % Pixel per degree
-    ppd  =  getPPD(rect, mon_width, view_dist);
+    ppd = getPPD(rect, mon_width, view_dist);
     
     % Get color index for that screen
-    Black  =  BlackIndex(w);
-    White  =  WhiteIndex(w);
+    Black = BlackIndex(win);
+    White = WhiteIndex(win);
     
     
-    %% set general RDK details
+    %% set general RDK adn display details
     % diameter of circle covered by the RDK
-    matrix_size  =  floor(rect(4) * matrix_size);
+    matrix_size = floor(rect(4) * matrix_size);
     
     % center of the RDK
-    mat_center  = [center(1), center(2)];
+    mat_center = [center(1), center(2)];
     
     % dot speed (pixels/frame)
-    pfs  =  dot_speed * ppd / fps;
+    pfs = dot_speed * ppd / fps;
     
     % dot size (pixels)
-    dot_s  =  dot_w * ppd;
+    dot_s = dot_w * ppd;
     
     % Number of dots : surface of the RDK disc * density of dots
-    nDots  =  getNumberDots(dot_w, matrix_size, dot_density, ppd);
+    nDots = getNumberDots(dot_w, matrix_size, dot_density, ppd);
     
-    % Decide which dots are signal dots (1) and those are noise dots (0)
-    dot_nature  =  rand(nDots,1) < coherence;
+    % decide which dots are signal dots (1) and those are noise dots (0)
+    dot_nature = rand(nDots,1) < coherence;
     
     % bar aperture width in pixel
     aperture_width = aperture_width * ppd;
     
+    
     % fixation cross
     fix_cross_size_pix = fix_cross_size_VA * ppd;
     fix_cross_lineWidth_pix = fix_cross_lineWidth_VA * ppd;
+    
     xCoords = [-fix_cross_size_pix fix_cross_size_pix 0 0] + fix_cross_xDisp;
     yCoords = [0 0 -fix_cross_size_pix fix_cross_size_pix] + fix_cross_yDisp;
     fix_cross_coords = [xCoords; yCoords];
+    
     
     %% initialize dots
     % Dot positions and speed matrix : colunm 1 to 5 gives respectively
@@ -124,8 +135,8 @@ try
     [X] = getX(nDots, matrix_size);
     [Y] = getY(nDots, matrix_size, X);
     
-    xy(:,1) =  X;
-    xy(:,2) =  Y;
+    xy(:,1) = X;
+    xy(:,2) = Y;
     clear X Y
     
     % Gives a pre determinded horizontal and vertical speed to the signal dots
@@ -149,12 +160,12 @@ try
     
     %% START
     HideCursor;
-    Priority(MaxPriority(w));
+    Priority(MaxPriority(win));
     
     % Do initial flip...
-    vbl=Screen('Flip', w);
+    vbl=Screen('Flip', win);
     
-    for i  =  1:n_frames
+    for i = 1:n_frames
         
         if KbCheck % break out of loop
             break;
@@ -188,15 +199,19 @@ try
             xy(:,1)<aperture_x(2)] ,2) );
         
         xy_matrix  =  transpose(xy(r_in,1:2));
-
+        
+        %% Actual PTB stuff
         % Draw nice dots : change 1 to 0 to draw square dots
-        Screen('DrawDots', w, xy_matrix, dot_s, White, mat_center, 1);
+        Screen('DrawDots', win, xy_matrix, dot_s, White, mat_center, 1);
+        
         % Centered fixation cross
-        Screen('DrawLines', w, fix_cross_coords, fix_cross_lineWidth_pix, White, mat_center, 1);  % Draw the fixation cross
+        Screen('DrawLines', win, fix_cross_coords, fix_cross_lineWidth_pix, White, mat_center, 1); % Draw the fixation cross
+        
         % Tell PTB that no further drawing commands will follow before Screen('Flip')
-        Screen('DrawingFinished', w);
+        Screen('DrawingFinished', win);
         
-        
+        % Show everything
+        vbl=Screen('Flip', win, vbl + wait_frames*ifi);
         
         
         
@@ -232,7 +247,7 @@ try
         % update dot matrix
         xy = getXYMotion(xy, dot_nature, hor_vector, vert_vector, pfs);
         
-        vbl=Screen('Flip', w, vbl + wait_frames*ifi);
+        clear xy_matrix
         
     end
     
