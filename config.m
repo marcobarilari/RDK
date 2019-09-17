@@ -10,7 +10,7 @@ cfg.dot_w = .5;
 % fraction of dots to kill each frame (limited lifetime)
 cfg.fraction_kill = 0.05;
 % Amount of coherence
-cfg.coherence = .95;
+cfg.coherence = 1;
 % starting motion direction: 0 gives right, 90 gives down, 180 gives left and 270 up.
 cfg.angle_motion = 0;
 % speed rotation of motion direction in degrees per second
@@ -18,10 +18,10 @@ cfg.spd_rot_mot_sec = 45/6;
 
 
 %% MOVING APERTURE
-% cfg.aperture_style = 'none';
+cfg.aperture_style = 'none';
 % cfg.aperture_style = 'annulus';
 % cfg.aperture_style = 'bar';
-cfg.aperture_style = 'wedge';
+% cfg.aperture_style = 'wedge';
 
 
 %% FIXATION CROSS
