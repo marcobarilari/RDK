@@ -1,10 +1,18 @@
 % Display a random dot kinetogram
 
+
+% TO DO
+% - wedge crashes when angles > 360 
+% - wedge crashes when direction wedge motion < 0 
+% - wedge starts with full wedge or not?
+% - exponential width of expanding annulus
+% - vertical bars and diagonal bars
+
 clear
 close all
 clc
 
-debug = 0;
+debug = 1;
 
 cfg = config();
 
@@ -51,7 +59,7 @@ mon_width = cfg.mon_width;
 % viewing distance (cm)
 view_dist = cfg.view_dist;
 
-aperture_width = cfg.aperture_width;
+
 
 %%
 AssertOpenGL;
@@ -114,8 +122,19 @@ try
     % decide which dots are signal dots (1) and those are noise dots (0)
     dot_nature = rand(nDots,1) < coherence;
     
-    % bar aperture width in pixel
-    aperture_width = aperture_width * ppd;
+    % speed rotation of motion direction in degrees per frame
+    spd_rot_mot_f = spd_rot_mot_sec / fps;
+    
+    
+    % aperture speed (pixels/frame)
+    switch aperture_style
+        case 'wedge'
+            aperture_speed_ppf = aperture_speed / fps;
+        otherwise
+            % bar/annulus aperture width and speed in pixel and frame unit
+            aperture_speed_ppf = aperture_speed * ppd / fps;
+            aperture_width = aperture_width * ppd;
+    end
     
     
     % fixation cross
@@ -151,8 +170,6 @@ try
     % calculate distance from matrix center for each dot
     xy = getDist2Center(xy);
     
-    % aperture position
-    aperture_x  = [matrix_size/-2 matrix_size/-2+aperture_width];
     
     %% initialize aperture
     % aperture configuration
@@ -182,29 +199,36 @@ try
         % calculate distance from matrix center for each dot
         xy = getDist2Center(xy);
         
-        % find the dots that are within the aread and only pass those to be
-        % plotted
-        r_in  = xy(:,5) <= matrix_size/2;
+        % find dots that are within the RDK area
+        r_in = xy(:,5) <= matrix_size/2;
         
         % find the dots that do not overlap with fixation cross
-        r_cross  = xy(:,5) > fix_cross_size_pix * 2;
-        % find the dots that are within the aperture area
-        r_aperture = dotsInAperture(xy, aperture_style, aperture_cfg);
+        r_cross = xy(:,5) > fix_cross_size_pix * 2;
         
-        % find the dots that are within the aperture area and only pass those to be
-        % plotted
-        r_in  =  find( all([ ...
+        % find the dots that are within the aperture area
+        r_aperture = dotsInAperture(xy, aperture_style, aperture_cfg, aperture_speed_ppf);
+        
+        % only pass those that match all those conditions
+        r_in = find( all([ ...
             r_in, ...
             r_cross, ...
-            xy(:,1)>aperture_x(1), ...
-            xy(:,1)<aperture_x(2)] ,2) );
+            r_aperture] ,2) );
         
-        xy_matrix  =  transpose(xy(r_in,1:2));
+        % change of format for PTB
+        xy_matrix = transpose(xy(r_in,1:2));
+        
         
         %% Actual PTB stuff
-        % Draw nice dots : change 1 to 0 to draw square dots
-        Screen('DrawDots', win, xy_matrix, dot_s, White, mat_center, 1);
-        
+        % sanity check
+        if ~isempty(xy_matrix)
+            % Draw nice dots : change 1 to 0 to draw square dots
+            Screen('DrawDots', win, xy_matrix, dot_s, White, mat_center, 1);
+        else
+            warning('no dot to plot')
+            break
+        end
+            
+
         % Centered fixation cross
         Screen('DrawLines', win, fix_cross_coords, fix_cross_lineWidth_pix, White, mat_center, 1); % Draw the fixation cross
         
@@ -215,31 +239,17 @@ try
         vbl=Screen('Flip', win, vbl + wait_frames*ifi);
         
         
+        %% Update everything
+        % update aperture position
+        aperture_cfg = aperture_cfg + aperture_speed_ppf;
         
-        aperture_x  =  aperture_x + .5;
+%         switch aperture_style
+%             case 'wedge'
+%                 aperture_cfg = rem(aperture_cfg, 360);
+%         end
         
         % Move the dots
-        xy(:,1:2) =  xy(:,1:2) + xy(:,3:4);
-        
-        
-        
-        % Gives new velocities direction value to these dots
-        % xy(r_out,3:4) =  rand(n_out,2) * 2 * pfs - pfs;
-
-        % 
-        
-        
-        
-        
-        if mod(i,10) == 0
-            angle_motion  =  angle_motion + 2;
-            
-            hor_vector  =  cos(pi*angle_motion/180);
-            vert_vector  =  sin(pi*angle_motion/180);
-            
-            xy(dot_nature,3:4) = ...
-                repmat([hor_vector vert_vector], sum(dot_nature), 1) * pfs;
-        end
+        xy(:,1:2) = xy(:,1:2) + xy(:,3:4);
         
         % update motion direction
         angle_motion = angle_motion + spd_rot_mot_f;

@@ -6,7 +6,7 @@ clc
 
 % ANIMATIONS DETAILS
 % number of animation frames in loop
-nframes = 10000;
+nframes = 100000;
 log_ndots = zeros(1,nframes);
 
 
@@ -109,13 +109,6 @@ for i = 1:nframes
     % find the dots that are within the aread and only pass those to be
     % plotted
     r_in  = xy(:,5) <= matrix_size/2;
-    
-    % find the dots that are within the aperture area and only pass those to be
-    % plotted
-    r_in  =  find( all([ ...
-        r_in, ...
-        xy(:,1)>aperture_x(1), ...
-        xy(:,1)<aperture_x(2)] ,2) );
 
     xy_matrix =  xy(r_in,1:2);
     
