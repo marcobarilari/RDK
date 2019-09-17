@@ -14,7 +14,7 @@ cfg.coherence = 1;
 % starting motion direction: 0 gives right, 90 gives down, 180 gives left and 270 up.
 cfg.angle_motion = 0;
 % speed rotation of motion direction in degrees per second
-cfg.spd_rot_mot_sec = 45/6;
+cfg.spd_rot_mot_sec = 0;
 
 
 %% MOVING APERTURE

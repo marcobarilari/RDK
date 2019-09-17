@@ -130,10 +130,13 @@ end
 subplot (311)
 [X, Y]=meshgrid(1:matrix_size, 1:matrix_size);
 mesh(X, Y, B)
+title('dot density')
 
 subplot (312)
 imagesc(B)
 axis square
+title('dot density')
 
 subplot (313)
 plot(log_ndots)
+title('dots per frame')
