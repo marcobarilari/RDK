@@ -1,9 +1,11 @@
+function RDK(subj, direc, emulate, debug)
+
 % Display a random dot kinetogram
 
 
 % TO DO
-% - wedge crashes when angles > 360 
-% - wedge crashes when direction wedge motion < 0 
+% - wedge crashes when angles > 360
+% - wedge crashes when direction wedge motion < 0
 % - wedge starts with full wedge or not?
 % - exponential width of expanding annulus
 % - vertical bars and diagonal bars
@@ -12,95 +14,90 @@ clear
 close all
 clc
 
-debug = 1;
+if nargin == 0
+    subj = 66;
+    run = 1;
+    direc = '-';
+    emulate = 1;
+    debug = 1;
+end
 
-cfg = config();
+if isempty(subj)
+    subj = input('Subject number? ');
+    run = input('Retinotopic run number? ');
+end
+
+task = 'RDKpolar';
+
+
+PARAMETERS = config(subj, run, task);
 
 % DOTS DETAILS
 % dots per degree^2
-dot_density = cfg.dot_density;
+dot_density = PARAMETERS.dot_density;
 % max dot speed (deg/sec)
-dot_speed = cfg.dot_speed;
+dot_speed = PARAMETERS.dot_speed;
 % width of dot (deg)
-dot_w = cfg.dot_w;
+dot_w = PARAMETERS.dot_w;
 % fraction of dots to kill each frame (limited lifetime)
-fraction_kill = cfg.fraction_kill;
+fraction_kill = PARAMETERS.fraction_kill;
 % Amount of coherence
-coherence = cfg.coherence;
+coherence = PARAMETERS.coherence;
 % 0 gives right, 90 gives down, 180 gives left and 270 up.
-angle_motion = cfg.angle_motion;
+angle_motion = PARAMETERS.angle_motion;
 % speed rotation of motion direction in degrees per second
-spd_rot_mot_sec = cfg.spd_rot_mot_sec;
+spd_rot_mot_sec = PARAMETERS.spd_rot_mot_sec;
 
 % APERTURE
-aperture_style = cfg.aperture_style;
+aperture_style = PARAMETERS.aperture_style;
 % aperture width in deg VA
-aperture_width = cfg.aperture_width;
+aperture_width = PARAMETERS.aperture_width;
 % aperture speed deg VA / sec
-aperture_speed = cfg.aperture_speed_VA;
+aperture_speed = PARAMETERS.aperture_speed_VA;
 
 % FIXATION
-fix_cross_size_VA = cfg.fix_cross_size_VA;
-fix_cross_lineWidth_VA = cfg.fix_cross_lineWidth_VA;
-fix_cross_xDisp = cfg.fix_cross_xDisp;
-fix_cross_yDisp = cfg.fix_cross_yDisp;
+fix_cross_size_VA = PARAMETERS.fix_cross_size_VA;
+fix_cross_lineWidth_VA = PARAMETERS.fix_cross_lineWidth_VA;
+fix_cross_xDisp = PARAMETERS.fix_cross_xDisp;
+fix_cross_yDisp = PARAMETERS.fix_cross_yDisp;
 
 % ANIMATIONS DETAILS
 % proportion of screeen height occupied by the RDK
-matrix_size = cfg.matrix_size;
+matrix_size = PARAMETERS.matrix_size;
 % number of animation frames in loop
-n_frames = cfg.n_frames;
+n_frames = PARAMETERS.n_frames;
 % Show new dot-images at each waitframes'th monitor refresh
-wait_frames = cfg.wait_frames;
-
-% SCREEN DETAILS
-% horizontal dimension of viewable screen (cm)
-mon_width = cfg.mon_width;
-% viewing distance (cm)
-view_dist = cfg.view_dist;
+wait_frames = PARAMETERS.wait_frames;
 
 
+%% Setup
+SetUpRand
 
-%%
-AssertOpenGL;
+PARAMETERS = eyeTrack(PARAMETERS, 'init');
 
-if debug
-    PsychDebugWindowConfiguration
-else
-    Screen('Preference', 'SkipSyncTests', 1) %#ok<*UNRCH>
-    oldEnableFlag = Screen('Preference', 'SuppressAllWarnings', 1);
-end
+% Event timings
+% Events is a vector that says when (in seconds from the start of the
+% experiment) a target should be presented.
+events = createEventsTiming(PARAMETERS);
+
+[trig_str, PARAMETERS] = configScanner(emulate, PARAMETERS);
+
 
 % put everything into a try / catch in case the poop hits the fan
 try
     
     
-    %% open screen and get info
-    screens=Screen('Screens');
-    screen_number=max(screens);
+    %% Initialize PTB
     
-    [win, rect] = Screen('OpenWindow', screen_number, 0, [], 32, 2);
+    keyCodes = SetupKeyCodes;
+    
+    [win, rect, ~, ifi, PARAMETERS] = initPTB(PARAMETERS, debug)
     
     % Gets the coordinates of the center of the screen
     [center(1), center(2)] = RectCenter(rect);
     
-    % Enable alpha blending with proper blend-function. We need it for drawing of smoothed points:
-    Screen('BlendFunction', win, GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    
-    % frames per second
-    fps=Screen('FrameRate',win);
-    % interframe interval
-    ifi=Screen('GetFlipInterval', win);
-    if fps==0
-        fps=1/ifi;
-    end
-    
     % Pixel per degree
-    ppd = getPPD(rect, mon_width, view_dist);
-    
-    % Get color index for that screen
-    Black = BlackIndex(win);
-    White = WhiteIndex(win);
+    ppd = getPPD(rect, PARAMETERS);
     
     
     %% set general RDK adn display details
@@ -111,7 +108,7 @@ try
     mat_center = [center(1), center(2)];
     
     % dot speed (pixels/frame)
-    pfs = dot_speed * ppd / fps;
+    pfs = dot_speed * ppd * ifi;
     
     % dot size (pixels)
     dot_s = dot_w * ppd;
@@ -123,16 +120,16 @@ try
     dot_nature = rand(nDots,1) < coherence;
     
     % speed rotation of motion direction in degrees per frame
-    spd_rot_mot_f = spd_rot_mot_sec / fps;
+    spd_rot_mot_f = spd_rot_mot_sec * ifi;
     
     
     % aperture speed (pixels/frame)
     switch aperture_style
         case 'wedge'
-            aperture_speed_ppf = aperture_speed / fps;
+            aperture_speed_ppf = aperture_speed * ifi;
         otherwise
             % bar/annulus aperture width and speed in pixel and frame unit
-            aperture_speed_ppf = aperture_speed * ppd / fps;
+            aperture_speed_ppf = aperture_speed * ppd * ifi;
             aperture_width = aperture_width * ppd;
     end
     
@@ -145,6 +142,11 @@ try
     yCoords = [0 0 -fix_cross_size_pix fix_cross_size_pix] + fix_cross_yDisp;
     fix_cross_coords = [xCoords; yCoords];
     
+    
+    prev_keypr = 0;
+    
+    BEHAVIOUR.response = [];
+    BEHAVIOUR.responseTime = [];
     
     %% initialize dots
     % Dot positions and speed matrix : colunm 1 to 5 gives respectively
@@ -177,17 +179,41 @@ try
         aperture_style, aperture_speed_ppf, ...
         aperture_width, matrix_size, fix_cross_size_pix);
     
-    %% START
+    %% Standby screen
+    
+    Screen('FillRect', win, PARAMETERS.gray, rect);
+    
+    DrawFormattedText(win, ...
+        [PARAMETERS.welcome '\n \n' PARAMETERS.instruction '\n \n' trig_str], ...
+        'center', 'center', PARAMETERS.white);
+    
+    Screen('Flip', win);
+    
     HideCursor;
+    
     Priority(MaxPriority(win));
     
+    %% Wait for start of experiment
+    if emulate == 1
+        [~, key, ~] = KbPressWait;
+        WaitSecs(PARAMETERS.TR * PARAMETERS.dummies);
+    else
+        [my_port] = waitForScanTrigger(PARAMETERS);
+    end
+    
+    QUIT = experimentAborted(key, keyCodes, win, PARAMETERS, rect);
+    
+    eyeTrack(PARAMETERS, 'start');
+    
     % Do initial flip...
-    vbl=Screen('Flip', win);
+    vbl = Screen('Flip', win);
+    
+    start_expmt = vbl;
     
     for i = 1:n_frames
         
-        if KbCheck % break out of loop
-            break;
+        if QUIT
+            return
         end
         
         % Finds if there is dots to reposition because out of the RDK
@@ -222,31 +248,39 @@ try
         % sanity check
         if ~isempty(xy_matrix)
             % Draw nice dots : change 1 to 0 to draw square dots
-            Screen('DrawDots', win, xy_matrix, dot_s, White, mat_center, 1);
+            Screen('DrawDots', win, xy_matrix, dot_s, PARAMETERS.white, mat_center, 1);
         else
             warning('no dot to plot')
             break
         end
-            
-
+        
+        
         % Centered fixation cross
-        Screen('DrawLines', win, fix_cross_coords, fix_cross_lineWidth_pix, White, mat_center, 1); % Draw the fixation cross
+        Screen('DrawLines', win, fix_cross_coords, fix_cross_lineWidth_pix, PARAMETERS.white, mat_center, 1); % Draw the fixation cross
         
         % Tell PTB that no further drawing commands will follow before Screen('Flip')
         Screen('DrawingFinished', win);
         
         % Show everything
-        vbl=Screen('Flip', win, vbl + wait_frames*ifi);
+        vbl = Screen('Flip', win, vbl + wait_frames*ifi);
+        
+        if PARAMETERS.print_gif
+            filename = fullfile(pwd, 'screen_capture', 'RDK_');
+            printScreen(win, filename, i)
+        end
+        
+        
+        [BEHAVIOUR, prev_keypr, QUIT] = getBehResp(keyCodes, win, PARAMETERS, rect, prev_keypr, BEHAVIOUR, start_expmt);
         
         
         %% Update everything
         % update aperture position
         aperture_cfg = aperture_cfg + aperture_speed_ppf;
         
-%         switch aperture_style
-%             case 'wedge'
-%                 aperture_cfg = rem(aperture_cfg, 360);
-%         end
+        %         switch aperture_style
+        %             case 'wedge'
+        %                 aperture_cfg = rem(aperture_cfg, 360);
+        %         end
         
         % Move the dots
         xy(:,1:2) = xy(:,1:2) + xy(:,3:4);
@@ -262,13 +296,25 @@ try
         
     end
     
-    Priority(0);
-    ShowCursor
-    Screen('CloseAll');
+    farewellScreen(win, PARAMETERS, rect)
+    
+    end_expmt = Screen('Flip', win);
+    
+    %% Experiment duration
+    dispExpDur(end_expmt, start_expmt)
+    
+    WaitSecs(1);
+    
+    if emulate ~= 1
+        IOPort('ConfigureSerialPort', my_port, 'StopBackgroundRead');
+        IOPort('Close', my_port);
+    end
+    
+    eyeTrack(PARAMETERS, 'stop');
+    
+    cleanUp
     
 catch
-    Priority(0);
-    ShowCursor
-    Screen('CloseAll');
+    cleanUp
     psychrethrow(psychlasterror);
 end
