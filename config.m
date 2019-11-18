@@ -1,4 +1,4 @@
-function PARAMETERS = config(subj, run, task)
+function PARAMETERS = config(subj, run, task, aperture_style)
 
 
 %% Output directory
@@ -33,12 +33,40 @@ PARAMETERS.angle_motion = 0;
 % speed rotation of motion direction in degrees per second
 PARAMETERS.spd_rot_mot_sec = 45/6;
 
+%% Aperture details
+PARAMETERS.aperture_style = aperture_style;
 
-%% Aoerture details
- PARAMETERS.aperture_style = 'none';
-% cfg.aperture_style = 'annulus';
-% cfg.aperture_style = 'bar';
-% cfg.aperture_style = 'wedge';
+switch PARAMETERS.aperture_style
+    
+    case 'none'
+        PARAMETERS.aperture_width = NaN;
+        PARAMETERS.aperture_speed_VA = NaN;
+        PARAMETERS.aperture_mot_dir = NaN;
+        
+    case 'bar'
+        % aperture width in deg VA 
+        PARAMETERS.aperture_width = 3;
+        % aperture speed in deg VA / sec 
+        PARAMETERS.aperture_speed_VA = -1;
+        % aperture motion direction
+        PARAMETERS.aperture_mot_dir = 0;
+            
+    case 'annulus'
+        % aperture width in deg VA (bar or annulus)
+        PARAMETERS.aperture_width = 3;
+        % aperture speed in deg VA / sec 
+        PARAMETERS.aperture_speed_VA = -1;
+        
+        PARAMETERS.aperture_mot_dir = NaN;
+        
+    case 'wedge'
+        % aperture width in deg (wedge)
+        PARAMETERS.aperture_width = 60;
+        % aperture speed in deg / sec (wedge)
+        PARAMETERS.aperture_speed_VA = 10;
+
+        PARAMETERS.aperture_mot_dir = NaN;
+end
 
 
 %% Experiment parameters
@@ -111,39 +139,6 @@ PARAMETERS.eyetracker.window = 1;
 
 addpath(fullfile(fileparts(mfilename('fullpath')), 'subfun'))
 addpath(fullfile(fileparts(mfilename('fullpath')), 'subfun', 'diy'))
-
-
-switch PARAMETERS.aperture_style
-    case 'none'
-        PARAMETERS.aperture_width = NaN;
-        PARAMETERS.aperture_speed_VA = NaN;
-        PARAMETERS.aperture_mot_dir = NaN;
-        
-    case 'bar'
-        % aperture width in deg VA 
-        PARAMETERS.aperture_width = 3;
-        % aperture speed in deg VA / sec 
-        PARAMETERS.aperture_speed_VA = -1;
-        % aperture motion direction
-        PARAMETERS.aperture_mot_dir = 0;
-            
-    case 'annulus'
-        % aperture width in deg VA (bar or annulus)
-        PARAMETERS.aperture_width = 3;
-        % aperture speed in deg VA / sec 
-        PARAMETERS.aperture_speed_VA = -1;
-        
-        PARAMETERS.aperture_mot_dir = NaN;
-        
-    case 'wedge'
-        % aperture width in deg (wedge)
-        PARAMETERS.aperture_width = 60;
-        % aperture speed in deg / sec (wedge)
-        PARAMETERS.aperture_speed_VA = 10;
-
-        PARAMETERS.aperture_mot_dir = NaN;
-end
-
 
 subj = ['sub-', sprintf('%2.2d', subj)];
 PARAMETERS.subj = subj;

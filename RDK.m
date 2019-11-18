@@ -17,6 +17,7 @@ clc
 if nargin == 0
     subj = 66;
     run = 1;
+    aperture_style = 'none';
     direc = '-';
     emulate = true;
     debug = true;
@@ -29,7 +30,7 @@ end
 
 task = 'RDK';
 
-PARAMETERS = config(subj, run, task);
+PARAMETERS = config(subj, run, task, aperture_style);
 
 
 %% DOTS DETAILS
@@ -49,14 +50,7 @@ angle_motion = PARAMETERS.angle_motion;
 spd_rot_mot_sec = PARAMETERS.spd_rot_mot_sec;
 
 
-%% APERTURE
-aperture_style = PARAMETERS.aperture_style;
-% aperture width in deg VA
-aperture_width = PARAMETERS.aperture_width;
-% aperture speed deg VA / sec
-aperture_speed = PARAMETERS.aperture_speed_VA;
-
-% ANIMATIONS DETAILS
+%% ANIMATIONS DETAILS
 % proportion of screeen height occupied by the RDK
 matrix_size = PARAMETERS.matrix_size;
 % number of animation frames in loop
@@ -100,9 +94,11 @@ try
     keyCodes = setupKeyCodes;
     
     [win, rect, ~, ifi, PARAMETERS] = initPTB(PARAMETERS, debug);
-    
+    PARAMETERS.ifi = ifi;
     % Pixel per degree
     ppd = getPPD(rect, PARAMETERS);
+    PARAMETERS.ppd = ppd;
+    
     
     TARGET.event_size_pix = PARAMETERS.event_size * ppd;
     
@@ -132,17 +128,7 @@ try
     % speed rotation of motion direction in degrees per frame
     spd_rot_mot_f = spd_rot_mot_sec * ifi;
     
-    % aperture speed (pixels/frame)
-    switch aperture_style
-        case 'wedge'
-            aperture_speed_ppf = aperture_speed * ifi;
-        otherwise
-            % bar/annulus aperture width and speed in pixel and frame unit
-            aperture_speed_ppf = aperture_speed * ppd * ifi;
-            aperture_width = aperture_width * ppd;
-    end
-    
-    
+
     %% Initialize dots
     % Dot positions and speed matrix : colunm 1 to 5 gives respectively
     % x position, y position, x speed, y speed, and distance of the point the RDK center
@@ -176,11 +162,8 @@ try
     
     % Aperture texture
     aperture_texture = Screen('MakeTexture', win, PARAMETERS.gray * ones(rect([4 3])));
-    aperture_cfg = getApertureCfg(...
-        aperture_style, aperture_speed_ppf, ...
-        aperture_width, matrix_size, fixation_size_pix);
-    
-    
+
+
     %% Standby screen
     Screen('FillRect', win, PARAMETERS.gray, rect);
     
@@ -238,17 +221,13 @@ try
         % find the dots that do not overlap with fixation dot
         r_fixation = xy(:,5) > fixation_size_pix * 2;
         
-        % find the dots that are within the aperture area
-        r_aperture = dotsInAperture(xy, aperture_style, aperture_cfg, aperture_speed_ppf);
-        
         % only pass those that match all those conditions
         r_in = find( all([ ...
             r_in, ...
-            r_fixation, ...
-            r_aperture] ,2) );
+            r_fixation] ,2) );
         
         % change of format for PTB
-        xy_matrix = transpose(xy(r_in,1:2));
+        xy_matrix = transpose(xy(r_in,1:2)); %#ok<FNDSB>
         
         
         %% Create apperture texture for this frame
@@ -256,6 +235,8 @@ try
         
         Screen('FillOval', aperture_texture, [0 0 0 0], ...
             CenterRectOnPoint([0 0 repmat(matrix_size,1,2)], rect(3)/2, rect(4)/2 ));
+
+        aperture_cfg = getApertureCfg(PARAMETERS, matrix_size);
         
         
         %% Actual PTB stuff
@@ -312,7 +293,7 @@ try
         
         %% Update everything
         % update aperture position
-        aperture_cfg = aperture_cfg + aperture_speed_ppf;
+%         aperture_cfg = aperture_cfg + aperture_speed_ppf;
         
         %         switch aperture_style
         %             case 'wedge'
