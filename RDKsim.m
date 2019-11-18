@@ -88,7 +88,7 @@ xy(~dot_nature,3:4) =  randn(sum(~dot_nature),2) * pfs;
 [~, R] =  cart2pol(xy(:,1), xy(:,2));
 xy(:,5) =  R;
 
-aperture_x  = [-400 -400+aperture_width];
+aperture_x  = [-400 -400 + aperture_width];
 
 
 for i = 1:nframes

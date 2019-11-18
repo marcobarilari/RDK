@@ -10,29 +10,14 @@ PARAMETERS.welcome = 'Please fixate the black dot at all times!';
 PARAMETERS.instruction = 'Press the button everytime it changes color!';
 
 
-%% feedback screens
+%% Feedback screens
 PARAMETERS.hit = 'You responded %i / %i times when there was a target.';
 PARAMETERS.miss = 'You did not respond %i / %i times when there was a target.';
 PARAMETERS.FA = 'You responded %i times when there was no target.';
 PARAMETERS.resp_win = 2; % duration of the response window
 
 
-%% Engine parameters
-% Screen used to display
-PARAMETERS.screen = max(Screen('Screens'));
-% Resolution [width height refresh_rate]
-PARAMETERS.resolution = [800 600 60];
-% Size of font
-PARAMETERS.font_size = 40;
-% Font to use
-PARAMETERS.font_name = 'Comic Sans MS';
-
-PARAMETERS.screen_capture = true;
-
-PARAMETERS.print_gif = false;
-
-
-%% DOTS DETAILS
+%% Dots details
 % dots per degree^2
 PARAMETERS.dot_density = .15;
 % max dot speed (deg/sec)
@@ -49,35 +34,11 @@ PARAMETERS.angle_motion = 0;
 PARAMETERS.spd_rot_mot_sec = 45/6;
 
 
-%% MOVING APERTURE
+%% Aoerture details
  PARAMETERS.aperture_style = 'none';
 % cfg.aperture_style = 'annulus';
 % cfg.aperture_style = 'bar';
 % cfg.aperture_style = 'wedge';
-
-
-%% ANIMATION DETAILS
-% proportion of screeen height occupied by the RDK
-PARAMETERS.matrix_size = .9;
-% number of animation frames in loop
-PARAMETERS.n_frames = 500;
-% Show new dot-images at each waitframes'th monitor refresh
-PARAMETERS.wait_frames = 1;
-
-
-%% SCREEN DETAILS
-% horizontal dimension of viewable screen (cm)
-PARAMETERS.mon_width = 21.5;
-% viewing distance (cm)
-PARAMETERS.view_dist = 30;
-
-
-%% Scanner parameters
-% Seconds per volume
-PARAMETERS.TR = 1;
-% Dummy volumes
-PARAMETERS.dummies = 0;
-PARAMETERS.overrun = 0;
 
 
 %% Experiment parameters
@@ -98,6 +59,45 @@ PARAMETERS.event_size = .15;
 PARAMETERS.event_color = [255 200 200];
 
 
+%% Animation details
+% proportion of screeen height occupied by the RDK
+PARAMETERS.matrix_size = .9;
+% number of animation frames in loop
+PARAMETERS.n_frames = 500;
+% Show new dot-images at each waitframes'th monitor refresh
+PARAMETERS.wait_frames = 1;
+
+
+%% Screen details
+% horizontal dimension of viewable screen (cm)
+PARAMETERS.mon_width = 21.5;
+% viewing distance (cm)
+PARAMETERS.view_dist = 30;
+
+
+%% Engine parameters
+% Screen used to display
+PARAMETERS.screen = max(Screen('Screens'));
+% Resolution [width height refresh_rate]
+PARAMETERS.resolution = [800 600 60];
+% Size of font
+PARAMETERS.font_size = 40;
+% Font to use
+PARAMETERS.font_name = 'Comic Sans MS';
+% Print the aperture texture for pRF
+PARAMETERS.screen_capture = true;
+% Print the screen to make a GIF of the experiment
+PARAMETERS.print_gif = false;
+
+
+%% Scanner parameters
+% Seconds per volume
+PARAMETERS.TR = 1;
+% Dummy volumes
+PARAMETERS.dummies = 0;
+PARAMETERS.overrun = 0;
+
+
 %% Eyetracker parameters
 % do we use an eyetracker ?
 PARAMETERS.eyetracker.do = false;
@@ -107,8 +107,7 @@ PARAMETERS.eyetracker.port = 4444;
 PARAMETERS.eyetracker.window = 1;
 
 
-
-%% Compute some parameters
+%% Compute some more parameters
 
 addpath(fullfile(fileparts(mfilename('fullpath')), 'subfun'))
 addpath(fullfile(fileparts(mfilename('fullpath')), 'subfun', 'diy'))

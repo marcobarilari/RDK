@@ -29,10 +29,10 @@ end
 
 task = 'RDK';
 
-
 PARAMETERS = config(subj, run, task);
 
-% DOTS DETAILS
+
+%% DOTS DETAILS
 % dots per degree^2
 dot_density = PARAMETERS.dot_density;
 % max dot speed (deg/sec)
@@ -48,7 +48,8 @@ angle_motion = PARAMETERS.angle_motion;
 % speed rotation of motion direction in degrees per second
 spd_rot_mot_sec = PARAMETERS.spd_rot_mot_sec;
 
-% APERTURE
+
+%% APERTURE
 aperture_style = PARAMETERS.aperture_style;
 % aperture width in deg VA
 aperture_width = PARAMETERS.aperture_width;
@@ -64,6 +65,20 @@ n_frames = PARAMETERS.n_frames;
 wait_frames = PARAMETERS.wait_frames;
 
 
+%% Initialize variables
+prev_keypr = 0;
+
+BEHAVIOUR.response = [];
+BEHAVIOUR.responseTime = [];
+
+TARGET.was_event = false;
+
+target_data = [];
+
+CURRENT.Frame = 0;
+CURRENT.Stim = 1;
+
+
 %% Setup
 SetUpRand
 
@@ -76,17 +91,16 @@ events = createEventsTiming(PARAMETERS)
 
 [trig_str, PARAMETERS] = configScanner(emulate, PARAMETERS);
 
-
 % put everything into a try / catch in case the poop hits the fan
 try
     
     
     %% Initialize PTB
     
-    keyCodes = SetupKeyCodes;
+    keyCodes = setupKeyCodes;
     
     [win, rect, ~, ifi, PARAMETERS] = initPTB(PARAMETERS, debug);
-
+    
     % Pixel per degree
     ppd = getPPD(rect, PARAMETERS);
     
@@ -95,12 +109,15 @@ try
     fixation_size_pix = PARAMETERS.fixation_size * ppd;
     
     
-    
-    %% set general RDK adn display details
+    %% Set general RDK and display details
     % diameter of circle covered by the RDK
     matrix_size = floor(rect(4) * matrix_size);
     
-    % dot speed (pixels/frame)
+    % set center of the dot texture that will be created
+    stim_rect = [0 0 repmat(matrix_size, 1, 2)];
+    [center(1,1), center(1,2)] = RectCenter(stim_rect);
+    
+    % dot speed (pixels/frame) - pixel frame speed
     pfs = dot_speed * ppd * ifi;
     
     % dot size (pixels)
@@ -115,7 +132,6 @@ try
     % speed rotation of motion direction in degrees per frame
     spd_rot_mot_f = spd_rot_mot_sec * ifi;
     
-    
     % aperture speed (pixels/frame)
     switch aperture_style
         case 'wedge'
@@ -125,24 +141,15 @@ try
             aperture_speed_ppf = aperture_speed * ppd * ifi;
             aperture_width = aperture_width * ppd;
     end
-        
-    prev_keypr = 0;
     
-    BEHAVIOUR.response = [];
-    BEHAVIOUR.responseTime = [];
     
-    TARGET.was_event = false;
-    
-    target_data = [];
-
-    CURRENT.Frame = 0;
-    CURRENT.Stim = 1;
-    
-    %% initialize dots
+    %% Initialize dots
     % Dot positions and speed matrix : colunm 1 to 5 gives respectively
     % x position, y position, x speed, y speed, and distance of the point the RDK center
     xy= zeros(nDots,5);
     
+    % fills a square with dots and we will later remove those outside of
+    % the frame
     [X] = getX(nDots, matrix_size);
     [Y] = getY(nDots, matrix_size, X);
     
@@ -162,20 +169,19 @@ try
     % calculate distance from matrix center for each dot
     xy = getDist2Center(xy);
     
-    %% Create dot texture
+    
+    %% Initialize textures
+    % Create dot texture
     dot_texture = Screen('MakeTexture', win, PARAMETERS.gray * ones(matrix_size));
     
-    stim_rect = [0 0 repmat(matrix_size, 1, 2)];
-    [center(1,1), center(1,2)] = RectCenter(stim_rect);
-    
-    %% initialize aperture
-    % aperture configuration
+    % Aperture texture
+    aperture_texture = Screen('MakeTexture', win, PARAMETERS.gray * ones(rect([4 3])));
     aperture_cfg = getApertureCfg(...
         aperture_style, aperture_speed_ppf, ...
         aperture_width, matrix_size, fixation_size_pix);
     
-    %% Standby screen
     
+    %% Standby screen
     Screen('FillRect', win, PARAMETERS.gray, rect);
     
     DrawFormattedText(win, ...
@@ -188,6 +194,7 @@ try
     
     Priority(MaxPriority(win));
     
+    
     %% Wait for start of experiment
     if emulate == 1
         [~, key, ~] = KbPressWait;
@@ -198,6 +205,8 @@ try
     
     QUIT = experimentAborted(key, keyCodes, win, PARAMETERS, rect);
     
+    
+    %% Start
     eyeTrack(PARAMETERS, 'start');
     
     % Do initial flip...
@@ -213,7 +222,8 @@ try
             return
         end
         
-        % Finds if there is dots to reposition because out of the RDK
+        %% Remove dots that are too far out, kill dots, reseed dots, 
+        % Finds if there are dots to reposition because out of the RDK
         xy = dotsROut(xy, matrix_size);
         
         % Kill some dots and reseed them at random position
@@ -225,8 +235,8 @@ try
         % find dots that are within the RDK area
         r_in = xy(:,5) <= matrix_size/2;
         
-        % find the dots that do not overlap with fixation cross
-        r_cross = xy(:,5) > fixation_size_pix * 2;
+        % find the dots that do not overlap with fixation dot
+        r_fixation = xy(:,5) > fixation_size_pix * 2;
         
         % find the dots that are within the aperture area
         r_aperture = dotsInAperture(xy, aperture_style, aperture_cfg, aperture_speed_ppf);
@@ -234,38 +244,44 @@ try
         % only pass those that match all those conditions
         r_in = find( all([ ...
             r_in, ...
-            r_cross, ...
+            r_fixation, ...
             r_aperture] ,2) );
         
         % change of format for PTB
         xy_matrix = transpose(xy(r_in,1:2));
         
         
+        %% Create apperture texture for this frame
+        Screen('Fillrect', aperture_texture, PARAMETERS.gray);
+        
+        Screen('FillOval', aperture_texture, [0 0 0 0], ...
+            CenterRectOnPoint([0 0 repmat(matrix_size,1,2)], rect(3)/2, rect(4)/2 ));
+        
+        
         %% Actual PTB stuff
-        % sanity check
+        % sanity check before drawin the dots in the texture
         if ~isempty(xy_matrix)
             
             Screen('FillRect', dot_texture, PARAMETERS.gray);
-
+            
             Screen('DrawDots', dot_texture, xy_matrix, dot_s, PARAMETERS.white, center, 1);
         else
             warning('no dot to plot')
             break
         end
         
-        
+        % Draw dot texture, aperture texture, fixation gap around fixation
         Screen('DrawTexture', win, dot_texture, stim_rect, CenterRect(stim_rect, rect));
         
-        % Draw gap around fixation
-        Screen('FillOval', win, PARAMETERS.gray, ...
-            CenterRect([0 0 fixation_size_pix+10 fixation_size_pix+10], rect));
+        Screen('DrawTexture', win, aperture_texture);
         
-        % Draw fixation
+        Screen('FillOval', win, PARAMETERS.gray, ...
+            CenterRect([0 0 fixation_size_pix*2 fixation_size_pix*2], rect));
+        
         Screen('FillOval', win, PARAMETERS.white, ...
             CenterRect([0 0 fixation_size_pix fixation_size_pix], rect));
         
-        
-        
+
         %% Draw target
         [TARGET] = drawTarget(TARGET, events, CURRENT, win, rect, PARAMETERS);
         
@@ -293,7 +309,7 @@ try
         %% Behavioural response
         [BEHAVIOUR, prev_keypr, QUIT] = getBehResp(keyCodes, win, PARAMETERS, rect, prev_keypr, BEHAVIOUR, start_expmt);
         
-
+        
         %% Update everything
         % update aperture position
         aperture_cfg = aperture_cfg + aperture_speed_ppf;
