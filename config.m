@@ -135,7 +135,6 @@ PARAMETERS.eyetracker.window = 1;
 addpath(fullfile(fileparts(mfilename('fullpath')), 'subfun'))
 addpath(fullfile(fileparts(mfilename('fullpath')), 'subfun', 'diy'))
 
-PARAMETERS.aperture.cycle_duration = PARAMETERS.TR * PARAMETERS.aperture.vols_per_cycle;
 
 subj = ['sub-', sprintf('%2.2d', subj)];
 PARAMETERS.subj = subj;
@@ -160,9 +159,28 @@ PARAMETERS.output_filename = fullfile(PARAMETERS.output_dir, ...
     PARAMETERS.run, ...
     datestr(now, date_format) ) );
 
+
 % compute full field of view
 PARAMETERS.FOV = getFOV(PARAMETERS);
 
+% aperture details
+PARAMETERS.aperture.cycle_duration = PARAMETERS.TR * PARAMETERS.aperture.vols_per_cycle;
+
+switch PARAMETERS.aperture.style
+    
+    case 'ring'
+    % ring apertures
+    % cs_func_fact is used to expand with log increasing speed so that ring is at
+    % max_ecc at end of cycle
+    PARAMETERS.ring.max_ecc = ...
+        PARAMETERS.FOV / 2 + PARAMETERS.aperture.width + log(PARAMETERS.FOV/2 + 1) ;
+    PARAMETERS.ring.cs_func_fact = ...
+        1 / ( (PARAMETERS.ring.max_ecc + exp(1)) ...
+        * log(PARAMETERS.ring.max_ecc + exp(1)) ...
+        - (PARAMETERS.ring.max_ecc + exp(1)) );
+
+end
+    
 % for octave: to prevent output being presented one screen at a time
 if IsOctave
     more off

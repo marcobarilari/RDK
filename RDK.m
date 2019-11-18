@@ -32,36 +32,6 @@ task = 'RDK';
 PARAMETERS = config(subj, run, task, aperture_style, direction);
 
 
-%% DOTS DETAILS
-% dots per degree^2
-dot_density = PARAMETERS.dot_density;
-% max dot speed (deg/sec)
-dot_speed = PARAMETERS.dot_speed;
-% width of dot (deg)
-dot_w = PARAMETERS.dot_w;
-% fraction of dots to kill each frame (limited lifetime)
-fraction_kill = PARAMETERS.fraction_kill;
-% Amount of coherence
-coherence = PARAMETERS.coherence;
-% 0 gives right, 90 gives down, 180 gives left and 270 up.
-angle_motion = PARAMETERS.angle_motion;
-% speed rotation of motion direction in degrees per second
-spd_rot_mot_sec = PARAMETERS.spd_rot_mot_sec;
-
-
-%% ANIMATIONS DETAILS
-% proportion of screeen height occupied by the RDK
-matrix_size = PARAMETERS.matrix_size;
-% number of animation frames in loop
-n_frames = PARAMETERS.n_frames;
-% Show new dot-images at each waitframes'th monitor refresh
-wait_frames = PARAMETERS.wait_frames;
-
-
-%% EXPERIMENT DETAILS
-% CycleDuration = PARAMETERS.TR * PARAMETERS.vols_per_cycle;
-% CyclingEnd = CycleDuration * PARAMETERS.CyclesPerExpmt;
-
 
 %% Initialize variables
 prev_keypr = 0;
@@ -75,6 +45,7 @@ target_data = [];
 
 CURRENT.Frame = 0;
 CURRENT.Stim = 1;
+CURRENT.angle_motion = PARAMETERS.angle_motion;
 
 
 %% Setup
@@ -88,6 +59,7 @@ PARAMETERS = eyeTrack(PARAMETERS, 'init');
 events = createEventsTiming(PARAMETERS);
 
 [trig_str, PARAMETERS] = configScanner(emulate, PARAMETERS);
+
 
 % put everything into a try / catch in case the poop hits the fan
 try
@@ -107,43 +79,35 @@ try
     
     fixation_size_pix = PARAMETERS.fixation_size * ppd;
     
-    % computes some parameters that are only used for ring apertures
-    % currentScale is scale of outer ring (exceeding screen until inner ring reaches window boarder)
-    PARAMETERS.ring.max_ecc = ...
-        PARAMETERS.FOV / 2 + PARAMETERS.aperture.width + log(PARAMETERS.FOV/2 + 1) ;
-    % RING.CsFuncFact is used to expand with log increasing speed so that ring is at RING.MaxEcc at end of cycle
-    PARAMETERS.ring.cs_func_fact = ...
-        1 / ( (PARAMETERS.ring.max_ecc + exp(1)) * log(PARAMETERS.ring.max_ecc + exp(1)) - (PARAMETERS.ring.max_ecc + exp(1)) ) ;
-    
-    
+
     %% Set general RDK and display details
     % diameter of circle covered by the RDK
-    matrix_size = floor(rect(4) * matrix_size);
+    matrix_size = floor(rect(4) * PARAMETERS.matrix_size);
     
     % set center of the dot texture that will be created
     stim_rect = [0 0 repmat(matrix_size, 1, 2)];
     [center(1,1), center(1,2)] = RectCenter(stim_rect);
     
     % dot speed (pixels/frame) - pixel frame speed
-    pfs = dot_speed * ppd * ifi;
+    pfs = PARAMETERS.dot_speed * ppd * ifi;
     
     % dot size (pixels)
-    dot_s = dot_w * ppd;
+    dot_s = PARAMETERS.dot_w * ppd;
     
     % Number of dots : surface of the RDK disc * density of dots
-    nDots = getNumberDots(dot_w, matrix_size, dot_density, ppd);
+    nDots = getNumberDots(PARAMETERS.dot_w, matrix_size,  PARAMETERS.dot_density, ppd);
     
     % decide which dots are signal dots (1) and those are noise dots (0)
-    dot_nature = rand(nDots,1) < coherence;
+    dot_nature = rand(nDots,1) < PARAMETERS.coherence;
     
     % speed rotation of motion direction in degrees per frame
-    spd_rot_mot_f = spd_rot_mot_sec * ifi;
+    spd_rot_mot_f = PARAMETERS.spd_rot_mot_sec * ifi;
     
 
     %% Initialize dots
     % Dot positions and speed matrix : colunm 1 to 5 gives respectively
     % x position, y position, x speed, y speed, and distance of the point the RDK center
-    xy= zeros(nDots,5);
+    xy = zeros(nDots,5);
     
     % fills a square with dots and we will later remove those outside of
     % the frame
@@ -155,7 +119,7 @@ try
     clear X Y
     
     % decompose angle of start motion into horizontal and vertical vector
-    [hor_vector, vert_vector] = decompMotion(angle_motion);
+    [hor_vector, vert_vector] = decompMotion(CURRENT.angle_motion);
     
     % Gives a pre determinded horizontal and vertical speed to the signal dots
     xy = getXYMotion(xy, dot_nature, hor_vector, vert_vector, pfs);
@@ -208,7 +172,7 @@ try
     
     start_expmt = vbl;
     
-    for i = 1:n_frames
+    for i = 1:PARAMETERS.n_frames
         
         CURRENT.time = GetSecs - start_expmt;
         
@@ -216,12 +180,13 @@ try
             return
         end
         
+        
         %% Remove dots that are too far out, kill dots, reseed dots, 
         % Finds if there are dots to reposition because out of the RDK
         xy = dotsROut(xy, matrix_size);
         
         % Kill some dots and reseed them at random position
-        xy = dotsReseed(nDots, fraction_kill, matrix_size, xy);
+        xy = dotsReseed(nDots, PARAMETERS.fraction_kill, matrix_size, xy);
         
         % calculate distance from matrix center for each dot
         xy = getDist2Center(xy);
@@ -244,8 +209,6 @@ try
         %% Create apperture texture for this frame
         Screen('Fillrect', aperture_texture, PARAMETERS.gray);
         
-
-
         [aperture_texture, CURRENT] = ...
             getApertureCfg(PARAMETERS, CURRENT, aperture_texture, matrix_size, rect);
         
@@ -253,9 +216,7 @@ try
         %% Actual PTB stuff
         % sanity check before drawin the dots in the texture
         if ~isempty(xy_matrix)
-            
             Screen('FillRect', dot_texture, PARAMETERS.gray);
-            
             Screen('DrawDots', dot_texture, xy_matrix, dot_s, PARAMETERS.white, center, 1);
         else
             warning('no dots to plot')
@@ -283,7 +244,7 @@ try
         Screen('DrawingFinished', win);
         
         % Show everything
-        vbl = Screen('Flip', win, vbl + wait_frames*ifi);
+        vbl = Screen('Flip', win, vbl + PARAMETERS.wait_frames*ifi);
         
         % collect target actual presentation time and target position
         if TARGET.onset
@@ -299,24 +260,18 @@ try
         
         
         %% Behavioural response
-        [BEHAVIOUR, prev_keypr, QUIT] = getBehResp(keyCodes, win, PARAMETERS, rect, prev_keypr, BEHAVIOUR, start_expmt);
+        [BEHAVIOUR, prev_keypr, QUIT] = ...
+            getBehResp(keyCodes, win, PARAMETERS, rect, prev_keypr, BEHAVIOUR, start_expmt);
         
         
         %% Update everything
-        % update aperture position
-%         aperture_cfg = aperture_cfg + aperture_speed_ppf;
-        
-        %         switch aperture_style
-        %             case 'wedge'
-        %                 aperture_cfg = rem(aperture_cfg, 360);
-        %         end
         
         % Move the dots
         xy(:,1:2) = xy(:,1:2) + xy(:,3:4);
         
         % update motion direction
-        angle_motion = angle_motion + spd_rot_mot_f;
-        [hor_vector, vert_vector] = decompMotion(angle_motion);
+        CURRENT.angle_motion = CURRENT.angle_motion + spd_rot_mot_f;
+        [hor_vector, vert_vector] = decompMotion(CURRENT.angle_motion);
         
         % update dot matrix
         xy = getXYMotion(xy, dot_nature, hor_vector, vert_vector, pfs);
@@ -328,6 +283,7 @@ try
     farewellScreen(win, PARAMETERS, rect)
     
     end_expmt = Screen('Flip', win);
+    
     
     %% Experiment duration
     dispExpDur(end_expmt, start_expmt)
@@ -342,6 +298,7 @@ try
     eyeTrack(PARAMETERS, 'stop');
     
     cleanUp
+    
     
 catch
     cleanUp
