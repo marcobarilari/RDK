@@ -86,10 +86,7 @@ try
     keyCodes = SetupKeyCodes;
     
     [win, rect, ~, ifi, PARAMETERS] = initPTB(PARAMETERS, debug);
-    
-    % Gets the coordinates of the center of the screen
-    [center(1), center(2)] = RectCenter(rect);
-    
+
     % Pixel per degree
     ppd = getPPD(rect, PARAMETERS);
     
@@ -102,9 +99,6 @@ try
     %% set general RDK adn display details
     % diameter of circle covered by the RDK
     matrix_size = floor(rect(4) * matrix_size);
-    
-    % center of the RDK
-    mat_center = [center(1), center(2)];
     
     % dot speed (pixels/frame)
     pfs = dot_speed * ppd * ifi;
@@ -168,6 +162,11 @@ try
     % calculate distance from matrix center for each dot
     xy = getDist2Center(xy);
     
+    %% Create dot texture
+    dot_texture = Screen('MakeTexture', win, PARAMETERS.gray * ones(matrix_size));
+    
+    stim_rect = [0 0 repmat(matrix_size, 1, 2)];
+    [center(1,1), center(1,2)] = RectCenter(stim_rect);
     
     %% initialize aperture
     % aperture configuration
@@ -245,13 +244,17 @@ try
         %% Actual PTB stuff
         % sanity check
         if ~isempty(xy_matrix)
-            % Draw nice dots : change 1 to 0 to draw square dots
-            Screen('DrawDots', win, xy_matrix, dot_s, PARAMETERS.white, mat_center, 1);
+            
+            Screen('FillRect', dot_texture, PARAMETERS.gray);
+
+            Screen('DrawDots', dot_texture, xy_matrix, dot_s, PARAMETERS.white, center, 1);
         else
             warning('no dot to plot')
             break
         end
         
+        
+        Screen('DrawTexture', win, dot_texture, stim_rect, CenterRect(stim_rect, rect));
         
         % Draw gap around fixation
         Screen('FillOval', win, PARAMETERS.gray, ...
