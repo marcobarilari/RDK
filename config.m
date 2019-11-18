@@ -35,40 +35,32 @@ PARAMETERS.spd_rot_mot_sec = 45/6;
 
 
 %% Aperture details
-PARAMETERS.aperture_style = aperture_style;
+PARAMETERS.aperture.style = aperture_style;
 
-switch PARAMETERS.aperture_style
+switch PARAMETERS.aperture.style
     
     case 'none'
-        PARAMETERS.aperture_width = NaN;
-        PARAMETERS.aperture_speed_VA = NaN;
-        PARAMETERS.aperture_mot_dir = NaN;
+        PARAMETERS.aperture.width = NaN;
+        PARAMETERS.aperture.vols_per_cycle = NaN;
+        PARAMETERS.aperture.direction = NaN;
         
     case 'bar'
         % aperture width in deg VA 
-        PARAMETERS.aperture_width = 3;
-        % aperture speed in deg VA / sec 
-        PARAMETERS.aperture_speed_VA = -1;
+        PARAMETERS.aperture.width = 3;
         % aperture motion direction
-        PARAMETERS.aperture_mot_dir = 0;
+        PARAMETERS.aperture.direction = 0;
             
-    case 'annulus'
+    case 'ring'
         % aperture width in deg VA (bar or annulus)
-        PARAMETERS.aperture_width = 3;
-        % aperture speed in deg VA / sec 
-        PARAMETERS.aperture_speed_VA = -1;
-        
-        PARAMETERS.aperture_mot_dir = NaN;
+        PARAMETERS.aperture.width = 3;
+        PARAMETERS.aperture.direction = direction;
+        PARAMETERS.aperture.vols_per_cycle = 12;
         
     case 'wedge'
         % aperture width in deg (wedge)
-        PARAMETERS.aperture_width = 60;
-        PARAMETERS.direction = direction;
-        % aperture speed in deg / sec (wedge)
-        PARAMETERS.aperture_speed_VA = 10;
-        PARAMETERS.vols_per_cycle = 12;
-
-        PARAMETERS.aperture_mot_dir = NaN;
+        PARAMETERS.aperture.width = 60;
+        PARAMETERS.aperture.direction = direction;
+        PARAMETERS.aperture.vols_per_cycle = 12;
 end
 
 
@@ -92,9 +84,9 @@ PARAMETERS.event_color = [255 200 200];
 
 %% Animation details
 % proportion of screeen height occupied by the RDK
-PARAMETERS.matrix_size = .9;
+PARAMETERS.matrix_size = .99;
 % number of animation frames in loop
-PARAMETERS.n_frames = 500;
+PARAMETERS.n_frames = 800;
 % Show new dot-images at each waitframes'th monitor refresh
 PARAMETERS.wait_frames = 1;
 
@@ -142,6 +134,8 @@ PARAMETERS.eyetracker.window = 1;
 
 addpath(fullfile(fileparts(mfilename('fullpath')), 'subfun'))
 addpath(fullfile(fileparts(mfilename('fullpath')), 'subfun', 'diy'))
+
+PARAMETERS.aperture.cycle_duration = PARAMETERS.TR * PARAMETERS.aperture.vols_per_cycle;
 
 subj = ['sub-', sprintf('%2.2d', subj)];
 PARAMETERS.subj = subj;

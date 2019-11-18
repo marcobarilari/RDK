@@ -16,10 +16,10 @@ clc
 if nargin == 0
     subj = 66;
     run = 1;
-    aperture_style = 'none';
+    aperture_style = 'ring';
     direction = '-';
     emulate = true;
-    debug = false;
+    debug = true;
 end
 
 if isempty(subj)
@@ -85,7 +85,7 @@ PARAMETERS = eyeTrack(PARAMETERS, 'init');
 % Event timings
 % Events is a vector that says when (in seconds from the start of the
 % experiment) a target should be presented.
-events = createEventsTiming(PARAMETERS)
+events = createEventsTiming(PARAMETERS);
 
 [trig_str, PARAMETERS] = configScanner(emulate, PARAMETERS);
 
@@ -103,10 +103,17 @@ try
     ppd = getPPD(rect, PARAMETERS);
     PARAMETERS.ppd = ppd;
     
-    
     TARGET.event_size_pix = PARAMETERS.event_size * ppd;
     
     fixation_size_pix = PARAMETERS.fixation_size * ppd;
+    
+    % computes some parameters that are only used for ring apertures
+    % currentScale is scale of outer ring (exceeding screen until inner ring reaches window boarder)
+    PARAMETERS.ring.max_ecc = ...
+        PARAMETERS.FOV / 2 + PARAMETERS.aperture.width + log(PARAMETERS.FOV/2 + 1) ;
+    % RING.CsFuncFact is used to expand with log increasing speed so that ring is at RING.MaxEcc at end of cycle
+    PARAMETERS.ring.cs_func_fact = ...
+        1 / ( (PARAMETERS.ring.max_ecc + exp(1)) * log(PARAMETERS.ring.max_ecc + exp(1)) - (PARAMETERS.ring.max_ecc + exp(1)) ) ;
     
     
     %% Set general RDK and display details
