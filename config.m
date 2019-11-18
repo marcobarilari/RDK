@@ -89,13 +89,13 @@ PARAMETERS.fixation_size = .15; % in degrees VA
 % Need to find a set of parameters that give 85-90% accuracy.
 
 % Probability of a target event
-PARAMETERS.prob_of_event = 0.1;
+PARAMETERS.prob_of_event = 0.5;
 % Duration of a target event in ms
 PARAMETERS.event_duration = 0.15;
 % diameter of target circle in degrees VA
 PARAMETERS.event_size = .15;
 % rgb color of the target
-PARAMETERS.even_color = [255 200 200];
+PARAMETERS.event_color = [255 200 200];
 
 
 %% Eyetracker parameters

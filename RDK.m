@@ -55,12 +55,6 @@ aperture_width = PARAMETERS.aperture_width;
 % aperture speed deg VA / sec
 aperture_speed = PARAMETERS.aperture_speed_VA;
 
-% FIXATION
-fix_cross_size_VA = PARAMETERS.fix_cross_size_VA;
-fix_cross_lineWidth_VA = PARAMETERS.fix_cross_lineWidth_VA;
-fix_cross_xDisp = PARAMETERS.fix_cross_xDisp;
-fix_cross_yDisp = PARAMETERS.fix_cross_yDisp;
-
 % ANIMATIONS DETAILS
 % proportion of screeen height occupied by the RDK
 matrix_size = PARAMETERS.matrix_size;
@@ -78,7 +72,7 @@ PARAMETERS = eyeTrack(PARAMETERS, 'init');
 % Event timings
 % Events is a vector that says when (in seconds from the start of the
 % experiment) a target should be presented.
-events = createEventsTiming(PARAMETERS);
+events = createEventsTiming(PARAMETERS)
 
 [trig_str, PARAMETERS] = configScanner(emulate, PARAMETERS);
 
@@ -142,6 +136,13 @@ try
     
     BEHAVIOUR.response = [];
     BEHAVIOUR.responseTime = [];
+    
+    TARGET.was_event = false;
+    
+    target_data = [];
+
+    CURRENT.Frame = 0;
+    CURRENT.Stim = 1;
     
     %% initialize dots
     % Dot positions and speed matrix : colunm 1 to 5 gives respectively
@@ -207,6 +208,8 @@ try
     
     for i = 1:n_frames
         
+        CURRENT.Time = GetSecs - start_expmt;
+        
         if QUIT
             return
         end
@@ -250,9 +253,6 @@ try
         end
         
         
-        % Centered fixation cross
-%         Screen('DrawLines', win, fix_cross_coords, fix_cross_lineWidth_pix, PARAMETERS.white, mat_center, 1); % Draw the fixation cross
-        
         % Draw gap around fixation
         Screen('FillOval', win, PARAMETERS.gray, ...
             CenterRect([0 0 fixation_size_pix+10 fixation_size_pix+10], rect));
@@ -263,11 +263,23 @@ try
         
         
         
+        %% Draw target
+        [TARGET] = drawTarget(TARGET, events, CURRENT, win, rect, PARAMETERS);
+        
+        
+        %% Flip current frame
         % Tell PTB that no further drawing commands will follow before Screen('Flip')
         Screen('DrawingFinished', win);
         
         % Show everything
         vbl = Screen('Flip', win, vbl + wait_frames*ifi);
+        
+        % collect target actual presentation time and target position
+        if TARGET.onset
+            target_data(end+1,[1 3:5]) = vbl-start_expmt; %#ok<AGROW>
+        elseif TARGET.offset
+            target_data(end,2) = vbl-start_expmt;
+        end
         
         if PARAMETERS.print_gif
             filename = fullfile(pwd, 'screen_capture', 'RDK_');
@@ -275,9 +287,10 @@ try
         end
         
         
+        %% Behavioural response
         [BEHAVIOUR, prev_keypr, QUIT] = getBehResp(keyCodes, win, PARAMETERS, rect, prev_keypr, BEHAVIOUR, start_expmt);
         
-        
+
         %% Update everything
         % update aperture position
         aperture_cfg = aperture_cfg + aperture_speed_ppf;
