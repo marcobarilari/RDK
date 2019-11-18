@@ -6,8 +6,9 @@ AssertOpenGL;
 if debug
     PsychDebugWindowConfiguration
 else
-    Screen('Preference', 'SkipSyncTests', 1) %#ok<*UNRCH>
-    old_enable_flag = Screen('Preference', 'SuppressAllWarnings', 1);
+    clear Screen % remove PsychDebugWindowConfiguration
+    Screen('Preference', 'SkipSyncTests', 2) %#ok<*UNRCH>
+%     old_enable_flag = Screen('Preference', 'SuppressAllWarnings', 2);
 end
 
 screen_id = PARAMETERS.screen;
