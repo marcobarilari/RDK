@@ -56,13 +56,6 @@ PARAMETERS.spd_rot_mot_sec = 45/6;
 % cfg.aperture_style = 'wedge';
 
 
-%% FIXATION CROSS
-PARAMETERS.fix_cross_size_VA = .5;    % fixation cross in visual angles
-PARAMETERS.fix_cross_lineWidth_VA = 0.1;
-PARAMETERS.fix_cross_xDisp = 0;
-PARAMETERS.fix_cross_yDisp = 0;
-
-
 %% ANIMATION DETAILS
 % proportion of screeen height occupied by the RDK
 PARAMETERS.matrix_size = .9;

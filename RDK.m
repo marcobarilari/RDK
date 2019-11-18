@@ -18,8 +18,8 @@ if nargin == 0
     subj = 66;
     run = 1;
     direc = '-';
-    emulate = 1;
-    debug = 1;
+    emulate = true;
+    debug = true;
 end
 
 if isempty(subj)
@@ -27,7 +27,7 @@ if isempty(subj)
     run = input('Retinotopic run number? ');
 end
 
-task = 'RDKpolar';
+task = 'RDK';
 
 
 PARAMETERS = config(subj, run, task);
@@ -91,13 +91,18 @@ try
     
     keyCodes = SetupKeyCodes;
     
-    [win, rect, ~, ifi, PARAMETERS] = initPTB(PARAMETERS, debug)
+    [win, rect, ~, ifi, PARAMETERS] = initPTB(PARAMETERS, debug);
     
     % Gets the coordinates of the center of the screen
     [center(1), center(2)] = RectCenter(rect);
     
     % Pixel per degree
     ppd = getPPD(rect, PARAMETERS);
+    
+    TARGET.event_size_pix = PARAMETERS.event_size * ppd;
+    
+    fixation_size_pix = PARAMETERS.fixation_size * ppd;
+    
     
     
     %% set general RDK adn display details
@@ -132,17 +137,7 @@ try
             aperture_speed_ppf = aperture_speed * ppd * ifi;
             aperture_width = aperture_width * ppd;
     end
-    
-    
-    % fixation cross
-    fix_cross_size_pix = fix_cross_size_VA * ppd;
-    fix_cross_lineWidth_pix = fix_cross_lineWidth_VA * ppd;
-    
-    xCoords = [-fix_cross_size_pix fix_cross_size_pix 0 0] + fix_cross_xDisp;
-    yCoords = [0 0 -fix_cross_size_pix fix_cross_size_pix] + fix_cross_yDisp;
-    fix_cross_coords = [xCoords; yCoords];
-    
-    
+        
     prev_keypr = 0;
     
     BEHAVIOUR.response = [];
@@ -177,7 +172,7 @@ try
     % aperture configuration
     aperture_cfg = getApertureCfg(...
         aperture_style, aperture_speed_ppf, ...
-        aperture_width, matrix_size, fix_cross_size_pix);
+        aperture_width, matrix_size, fixation_size_pix);
     
     %% Standby screen
     
@@ -229,7 +224,7 @@ try
         r_in = xy(:,5) <= matrix_size/2;
         
         % find the dots that do not overlap with fixation cross
-        r_cross = xy(:,5) > fix_cross_size_pix * 2;
+        r_cross = xy(:,5) > fixation_size_pix * 2;
         
         % find the dots that are within the aperture area
         r_aperture = dotsInAperture(xy, aperture_style, aperture_cfg, aperture_speed_ppf);
@@ -256,7 +251,17 @@ try
         
         
         % Centered fixation cross
-        Screen('DrawLines', win, fix_cross_coords, fix_cross_lineWidth_pix, PARAMETERS.white, mat_center, 1); % Draw the fixation cross
+%         Screen('DrawLines', win, fix_cross_coords, fix_cross_lineWidth_pix, PARAMETERS.white, mat_center, 1); % Draw the fixation cross
+        
+        % Draw gap around fixation
+        Screen('FillOval', win, PARAMETERS.gray, ...
+            CenterRect([0 0 fixation_size_pix+10 fixation_size_pix+10], rect));
+        
+        % Draw fixation
+        Screen('FillOval', win, PARAMETERS.white, ...
+            CenterRect([0 0 fixation_size_pix fixation_size_pix], rect));
+        
+        
         
         % Tell PTB that no further drawing commands will follow before Screen('Flip')
         Screen('DrawingFinished', win);
