@@ -1,7 +1,6 @@
-function RDK(subj, direc, emulate, debug)
+function RDK(subj, direction, emulate, debug)
 
 % Display a random dot kinetogram
-
 
 % TO DO
 % - wedge crashes when angles > 360
@@ -18,9 +17,9 @@ if nargin == 0
     subj = 66;
     run = 1;
     aperture_style = 'none';
-    direc = '-';
+    direction = '-';
     emulate = true;
-    debug = true;
+    debug = false;
 end
 
 if isempty(subj)
@@ -30,7 +29,7 @@ end
 
 task = 'RDK';
 
-PARAMETERS = config(subj, run, task, aperture_style);
+PARAMETERS = config(subj, run, task, aperture_style, direction);
 
 
 %% DOTS DETAILS
@@ -57,6 +56,11 @@ matrix_size = PARAMETERS.matrix_size;
 n_frames = PARAMETERS.n_frames;
 % Show new dot-images at each waitframes'th monitor refresh
 wait_frames = PARAMETERS.wait_frames;
+
+
+%% EXPERIMENT DETAILS
+% CycleDuration = PARAMETERS.TR * PARAMETERS.vols_per_cycle;
+% CyclingEnd = CycleDuration * PARAMETERS.CyclesPerExpmt;
 
 
 %% Initialize variables
@@ -199,7 +203,7 @@ try
     
     for i = 1:n_frames
         
-        CURRENT.Time = GetSecs - start_expmt;
+        CURRENT.time = GetSecs - start_expmt;
         
         if QUIT
             return
@@ -233,10 +237,10 @@ try
         %% Create apperture texture for this frame
         Screen('Fillrect', aperture_texture, PARAMETERS.gray);
         
-        Screen('FillOval', aperture_texture, [0 0 0 0], ...
-            CenterRectOnPoint([0 0 repmat(matrix_size,1,2)], rect(3)/2, rect(4)/2 ));
 
-        aperture_cfg = getApertureCfg(PARAMETERS, matrix_size);
+
+        [aperture_texture, CURRENT] = ...
+            getApertureCfg(PARAMETERS, CURRENT, aperture_texture, matrix_size, rect);
         
         
         %% Actual PTB stuff
@@ -247,7 +251,7 @@ try
             
             Screen('DrawDots', dot_texture, xy_matrix, dot_s, PARAMETERS.white, center, 1);
         else
-            warning('no dot to plot')
+            warning('no dots to plot')
             break
         end
         

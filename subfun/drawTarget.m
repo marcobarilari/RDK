@@ -10,7 +10,7 @@ event_size_pix = TARGET.event_size_pix;
 
 % check that the current time is superior to the start time and inferior to the end time of at
 % least one event
-curr_events = events - CURRENT.Time;
+curr_events = events - CURRENT.time;
 if  any( all( [curr_events > 0 , curr_events < PARAMETERS.event_duration], 2 ) )
     is_event = true;
 end

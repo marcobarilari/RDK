@@ -1,4 +1,4 @@
-function PARAMETERS = config(subj, run, task, aperture_style)
+function PARAMETERS = config(subj, run, task, aperture_style, direction)
 
 
 %% Output directory
@@ -33,6 +33,7 @@ PARAMETERS.angle_motion = 0;
 % speed rotation of motion direction in degrees per second
 PARAMETERS.spd_rot_mot_sec = 45/6;
 
+
 %% Aperture details
 PARAMETERS.aperture_style = aperture_style;
 
@@ -62,8 +63,10 @@ switch PARAMETERS.aperture_style
     case 'wedge'
         % aperture width in deg (wedge)
         PARAMETERS.aperture_width = 60;
+        PARAMETERS.direction = direction;
         % aperture speed in deg / sec (wedge)
         PARAMETERS.aperture_speed_VA = 10;
+        PARAMETERS.vols_per_cycle = 12;
 
         PARAMETERS.aperture_mot_dir = NaN;
 end
