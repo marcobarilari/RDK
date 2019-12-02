@@ -2,13 +2,6 @@ function RDK(subj, direction, emulate, debug)
 
 % Display a random dot kinetogram
 
-% TO DO
-% - wedge crashes when angles > 360
-% - wedge crashes when direction wedge motion < 0
-% - wedge starts with full wedge or not?
-% - exponential width of expanding annulus
-% - vertical bars and diagonal bars
-
 clear
 close all
 clc
@@ -16,7 +9,7 @@ clc
 if nargin == 0
     subj = 66;
     run = 1;
-    aperture_style = 'ring';
+    aperture_style = 'none';
     direction = '-';
     emulate = true;
     debug = true;
@@ -71,6 +64,7 @@ try
     
     [win, rect, ~, ifi, PARAMETERS] = initPTB(PARAMETERS, debug);
     PARAMETERS.ifi = ifi;
+    PARAMETERS.frame_per_volume = ceil(PARAMETERS.TR/ifi);
     % Pixel per degree
     ppd = getPPD(rect, PARAMETERS);
     PARAMETERS.ppd = ppd;
@@ -79,7 +73,7 @@ try
     
     fixation_size_pix = PARAMETERS.fixation_size * ppd;
     
-
+    
     %% Set general RDK and display details
     % diameter of circle covered by the RDK
     matrix_size = floor(rect(4) * PARAMETERS.matrix_size);
@@ -103,7 +97,21 @@ try
     % speed rotation of motion direction in degrees per frame
     spd_rot_mot_f = PARAMETERS.spd_rot_mot_sec * ifi;
     
-
+    
+    %% Aperture variables
+    if strcmp (PARAMETERS.aperture.style, 'bar')
+        bar_width_pix = stim_rect(3) / PARAMETERS.aperture.vols_per_cycle;
+        bar_positions = [0 : bar_width_pix : stim_rect(3)-bar_width_pix] ...
+            + (rect(3)/2-stim_rect(3)/2) + bar_width_pix / 2; %#ok<NBRAK>
+        
+        PARAMETERS.aperture.bar_width_pix = bar_width_pix;
+        PARAMETERS.aperture.bar_positions = bar_positions;
+        PARAMETERS.aperture.bar_width_VA = bar_width_pix / ppd; % Width of bar in degrees of VA (needed for saving)
+        PARAMETERS.aperture.bar_positions_VA = (bar_positions - rect(3)/2) / ppd; % in VA
+        clear bar_width_pix bar_positions
+    end
+    
+    
     %% Initialize dots
     % Dot positions and speed matrix : colunm 1 to 5 gives respectively
     % x position, y position, x speed, y speed, and distance of the point the RDK center
@@ -137,8 +145,8 @@ try
     
     % Aperture texture
     aperture_texture = Screen('MakeTexture', win, PARAMETERS.gray * ones(rect([4 3])));
-
-
+    
+    
     %% Standby screen
     Screen('FillRect', win, PARAMETERS.gray, rect);
     
@@ -172,16 +180,33 @@ try
     
     start_expmt = vbl;
     
+    CURRENT.cycle = 1;
+    CURRENT.frame = 1;
+    CURRENT.volume = 1;
+    CURRENT.condition = 1;
+    
     for i = 1:PARAMETERS.n_frames
         
         CURRENT.time = GetSecs - start_expmt;
         
+        CURRENT.frame = CURRENT.frame + 1;
+        
+        if CURRENT.frame > PARAMETERS.frame_per_volume
+            CURRENT.frame = 1;
+            CURRENT.volume = CURRENT.volume + 1;
+        end
+        
+        if CURRENT.volume > PARAMETERS.aperture.vols_per_cycle
+            CURRENT.volume = 1;
+            CURRENT.condition = CURRENT.condition + 1;
+        end
+
         if QUIT
             return
         end
         
         
-        %% Remove dots that are too far out, kill dots, reseed dots, 
+        %% Remove dots that are too far out, kill dots, reseed dots,
         % Finds if there are dots to reposition because out of the RDK
         xy = dotsROut(xy, matrix_size);
         
@@ -224,9 +249,10 @@ try
         end
         
         % Draw dot texture, aperture texture, fixation gap around fixation
+        % and fixation dot
         Screen('DrawTexture', win, dot_texture, stim_rect, CenterRect(stim_rect, rect));
         
-        Screen('DrawTexture', win, aperture_texture);
+        Screen('DrawTexture', win, aperture_texture, rect, rect, CURRENT.apperture_angle - 90);
         
         Screen('FillOval', win, PARAMETERS.gray, ...
             CenterRect([0 0 fixation_size_pix*2 fixation_size_pix*2], rect));
@@ -234,7 +260,7 @@ try
         Screen('FillOval', win, PARAMETERS.white, ...
             CenterRect([0 0 fixation_size_pix fixation_size_pix], rect));
         
-
+        
         %% Draw target
         [TARGET] = drawTarget(TARGET, events, CURRENT, win, rect, PARAMETERS);
         

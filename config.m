@@ -21,9 +21,9 @@ PARAMETERS.resp_win = 2; % duration of the response window
 % dots per degree^2
 PARAMETERS.dot_density = .15;
 % max dot speed (deg/sec)
-PARAMETERS.dot_speed   = 10;
+PARAMETERS.dot_speed = 10;
 % width of dot (deg)
-PARAMETERS.dot_w = .5;
+PARAMETERS.dot_w = .25;
 % fraction of dots to kill each frame (limited lifetime)
 PARAMETERS.fraction_kill = 0.05;
 % Amount of coherence
@@ -31,7 +31,7 @@ PARAMETERS.coherence = 1;
 % starting motion direction: 0 gives right, 90 gives down, 180 gives left and 270 up.
 PARAMETERS.angle_motion = 0;
 % speed rotation of motion direction in degrees per second
-PARAMETERS.spd_rot_mot_sec = 45/6;
+PARAMETERS.spd_rot_mot_sec = 360/15;
 
 
 %% Aperture details
@@ -45,22 +45,21 @@ switch PARAMETERS.aperture.style
         PARAMETERS.aperture.direction = NaN;
         
     case 'bar'
-        % aperture width in deg VA 
-        PARAMETERS.aperture.width = 3;
         % aperture motion direction
-        PARAMETERS.aperture.direction = 0;
+        PARAMETERS.aperture.direction = [90 45 0 135 270 225 180 315];  
+        PARAMETERS.aperture.vols_per_cycle = 12;
             
     case 'ring'
         % aperture width in deg VA (bar or annulus)
-        PARAMETERS.aperture.width = 3;
+        PARAMETERS.aperture.width = 2;
         PARAMETERS.aperture.direction = direction;
-        PARAMETERS.aperture.vols_per_cycle = 12;
+        PARAMETERS.aperture.vols_per_cycle = 60;
         
     case 'wedge'
         % aperture width in deg (wedge)
         PARAMETERS.aperture.width = 60;
         PARAMETERS.aperture.direction = direction;
-        PARAMETERS.aperture.vols_per_cycle = 12;
+        PARAMETERS.aperture.vols_per_cycle = 60;
 end
 
 
@@ -86,7 +85,7 @@ PARAMETERS.event_color = [255 200 200];
 % proportion of screeen height occupied by the RDK
 PARAMETERS.matrix_size = .99;
 % number of animation frames in loop
-PARAMETERS.n_frames = 800;
+PARAMETERS.n_frames = 1600;
 % Show new dot-images at each waitframes'th monitor refresh
 PARAMETERS.wait_frames = 1;
 
