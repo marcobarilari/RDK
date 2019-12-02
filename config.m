@@ -1,5 +1,7 @@
 function PARAMETERS = config(subj, run, task, aperture_style, direction)
 
+addpath(fullfile(fileparts(mfilename('fullpath'))), 'subfun')
+addpath(fullfile(fileparts(mfilename('fullpath'))), 'subfun', 'diy')
 
 %% Output directory
 PARAMETERS.target_dir = fullfile(fileparts(mfilename('fullpath')), 'output');
@@ -38,23 +40,23 @@ PARAMETERS.spd_rot_mot_sec = 360/15;
 PARAMETERS.aperture.style = aperture_style;
 
 switch PARAMETERS.aperture.style
-    
+
     case 'none'
         PARAMETERS.aperture.width = NaN;
         PARAMETERS.aperture.vols_per_cycle = NaN;
         PARAMETERS.aperture.direction = NaN;
-        
+
     case 'bar'
         % aperture motion direction
-        PARAMETERS.aperture.direction = [90 45 0 135 270 225 180 315];  
+        PARAMETERS.aperture.direction = [90 45 0 135 270 225 180 315];
         PARAMETERS.aperture.vols_per_cycle = 12;
-            
+
     case 'ring'
         % aperture width in deg VA (bar or annulus)
         PARAMETERS.aperture.width = 2;
         PARAMETERS.aperture.direction = direction;
         PARAMETERS.aperture.vols_per_cycle = 60;
-        
+
     case 'wedge'
         % aperture width in deg (wedge)
         PARAMETERS.aperture.width = 60;
@@ -166,7 +168,7 @@ PARAMETERS.FOV = getFOV(PARAMETERS);
 PARAMETERS.aperture.cycle_duration = PARAMETERS.TR * PARAMETERS.aperture.vols_per_cycle;
 
 switch PARAMETERS.aperture.style
-    
+
     case 'ring'
     % ring apertures
     % cs_func_fact is used to expand with log increasing speed so that ring is at
@@ -179,7 +181,7 @@ switch PARAMETERS.aperture.style
         - (PARAMETERS.ring.max_ecc + exp(1)) );
 
 end
-    
+
 % for octave: to prevent output being presented one screen at a time
 if IsOctave
     more off
