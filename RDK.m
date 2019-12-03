@@ -24,8 +24,6 @@ task = 'RDK';
 
 PARAMETERS = config(subj, run, task, aperture_style, direction);
 
-
-
 %% Initialize variables
 prev_keypr = 0;
 
